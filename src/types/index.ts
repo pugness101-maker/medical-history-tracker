@@ -93,6 +93,7 @@ export interface HealthNote {
 
 export type { AdultHealthProfile, CareProviderEntry, InsurancePlan, ProfileTabId } from './profile';
 export { emptyAdultHealthProfile, PRIVACY_WARNING } from './profile';
+export type { VaccineDose, VaccineKey, VaccineProfile, VaccineStatus } from './vaccine';
 
 export interface AppSettings {
   theme: 'light' | 'dark';
@@ -103,6 +104,7 @@ export interface AppData {
   conditions: Condition[];
   medications: Medication[];
   records: MedicalRecord[];
+  vaccineProfiles: import('./vaccine').VaccineProfile[];
   healthNotes: HealthNote[];
   adultHealthProfile: import('./profile').AdultHealthProfile;
   settings: AppSettings;

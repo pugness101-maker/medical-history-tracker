@@ -1,6 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { AppData } from '../types';
 import { ensureDefaultCareProviders } from '../utils/profileDefaults';
+import { seedVaccineDataForApp } from '../utils/vaccineRegistry';
 
 const now = new Date().toISOString();
 const daysFromNow = (days: number) => {
@@ -19,7 +20,7 @@ export function createSampleData(): AppData {
   const cond1Id = uuidv4();
   const cond2Id = uuidv4();
 
-  return {
+  const base: AppData = {
     appointments: [
       {
         id: appt1Id,
@@ -165,19 +166,6 @@ export function createSampleData(): AppData {
       },
       {
         id: uuidv4(),
-        recordType: 'vaccine',
-        date: '2024-10-15',
-        uploadDate: '2024-10-15',
-        provider: 'Riverside Medical Center',
-        summary: 'Annual flu vaccine administered',
-        notes: 'No adverse reactions',
-        fileName: '',
-        extractedText: '',
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        id: uuidv4(),
         recordType: 'imaging',
         date: daysAgo(90),
         uploadDate: daysAgo(90),
@@ -190,6 +178,7 @@ export function createSampleData(): AppData {
         updatedAt: now,
       },
     ],
+    vaccineProfiles: [],
     healthNotes: [
       {
         id: uuidv4(),
@@ -385,4 +374,6 @@ export function createSampleData(): AppData {
     }),
     settings: { theme: 'light' },
   };
+
+  return seedVaccineDataForApp(base, now);
 }

@@ -16,6 +16,7 @@ import { CONDITION_STATUS_LABELS } from '../types';
 import type { AdultHealthProfile } from '../types/profile';
 import { CARE_CATEGORY_LABELS } from '../types/profile';
 import { ProviderLinkSummary } from '../components/health/ProviderLinkSummary';
+import { VaccinesSection, countActionNeeded } from '../components/health/VaccinesSection';
 import {
   autoLinkAllAppointments,
   getProviderLinkSummary,
@@ -25,12 +26,13 @@ import {
   PREVENTIVE_STATUS_LABELS,
   preventiveBadgeClass,
 } from '../utils/preventiveCare';
-import { getCareEntry, updateCareEntry } from '../utils/profileDefaults';
-import { computeNextDue } from '../utils/dueDates';
+import { updateCareEntry } from '../utils/profileDefaults';
 import { formatDate } from '../utils/format';
 import { Input } from '../components/ui/FormFields';
 import { useHealthSectionState } from '../hooks/useHealthSectionState';
 import { normalizeHealthSectionParam } from '../utils/healthSectionState';
+import { buildAllVaccineRows, updateVaccineNotes } from '../utils/vaccineRegistry';
+import type { VaccineKey } from '../types/vaccine';
 
 function countInsurancePlans(profile: AdultHealthProfile): number {
   return [profile.insuranceMedical, profile.insuranceDental, profile.insuranceVision].filter(
@@ -90,8 +92,10 @@ export function HealthPage() {
     () => getPreventiveItems(profile.careProviders, CARE_CATEGORY_LABELS, data.appointments),
     [profile.careProviders, data.appointments],
   );
-  const vaccines = data.records.filter((r) => r.recordType === 'vaccine');
   const labs = data.records.filter((r) => r.recordType === 'lab');
+  const vaccineRows = useMemo(() => buildAllVaccineRows(data), [data]);
+  const vaccineActionCount = countActionNeeded(vaccineRows);
+  const vaccineDoseCount = vaccineRows.reduce((n, r) => n + r.doses.length, 0);
 
   const providerCount = profile.careProviders.filter((c) => c.providerName.trim()).length;
   const activeConditionCount = data.conditions.filter(isActiveCondition).length;
@@ -129,6 +133,13 @@ export function HealthPage() {
     setData((d) => autoLinkAllAppointments(d));
     setAutoLinkMsg('All appointments linked to Health providers.');
     setTimeout(() => setAutoLinkMsg(''), 3000);
+  };
+
+  const handleVaccineNotes = (key: VaccineKey, notes: string) => {
+    setData((d) => ({
+      ...d,
+      vaccineProfiles: updateVaccineNotes(d.vaccineProfiles, key, notes),
+    }));
   };
 
   return (
@@ -300,51 +311,37 @@ export function HealthPage() {
       </CollapsibleSection>
 
       <CollapsibleSection
-        sectionId="section-vaccines-labs"
-        title="Vaccines & Labs"
-        subtitle="Records from your health history"
-        count={vaccines.length + labs.length}
-        open={openSections['vaccines-labs']}
-        onOpenChange={(open) => setSectionOpen('vaccines-labs', open)}
+        sectionId="section-vaccines"
+        title="Vaccines"
+        subtitle="Immunization history, boosters & dose tracking"
+        count={vaccineActionCount > 0 ? vaccineActionCount : vaccineDoseCount}
+        countVariant={vaccineActionCount > 0 ? 'alert' : 'default'}
+        open={openSections.vaccines}
+        onOpenChange={(open) => setSectionOpen('vaccines', open)}
       >
-        <div className="pt-4 space-y-6">
-          <div>
-            <h4 className="font-semibold mb-3">Vaccines</h4>
-            <div className="space-y-2">
-              {vaccines.length === 0 ? (
-                <p className="text-sm opacity-50">Add vaccine records in Records, or track in Vaccines & Labs provider</p>
-              ) : (
-                vaccines.map((r) => (
-                  <div key={r.id} className="p-4 rounded-xl border text-[15px] min-h-[56px]" style={{ borderColor: 'var(--color-border)' }}>
-                    <p className="font-medium">{r.summary}</p>
-                    <p className="text-sm opacity-50">{formatDate(r.date)} · {r.provider}</p>
-                  </div>
-                ))
-              )}
-              {getCareEntry(profile, 'vaccines_labs').providerName && (
-                <p className="text-sm opacity-50 pt-2">
-                  Next review: {formatDate(computeNextDue(getCareEntry(profile, 'vaccines_labs')) || '') || 'Set last visit in Providers'}
-                </p>
-              )}
-            </div>
-          </div>
+        <VaccinesSection data={data} onUpdateNotes={handleVaccineNotes} />
+      </CollapsibleSection>
 
-          <div>
-            <h4 className="font-semibold mb-3">Labs</h4>
-            <div className="space-y-2">
-              {labs.length === 0 ? (
-                <p className="text-sm opacity-50">Upload or add lab records in Records</p>
-              ) : (
-                labs.map((r) => (
-                  <div key={r.id} className="p-4 rounded-xl border text-[15px] min-h-[56px]" style={{ borderColor: 'var(--color-border)' }}>
-                    <p className="font-medium">{r.summary}</p>
-                    <p className="text-sm opacity-50">{formatDate(r.date)} · {r.provider}</p>
-                    {r.fileName && <p className="text-xs text-[var(--color-accent)] mt-1">{r.fileName}</p>}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+      <CollapsibleSection
+        sectionId="section-labs"
+        title="Labs"
+        subtitle="Lab results from your records"
+        count={labs.length}
+        open={openSections.labs}
+        onOpenChange={(open) => setSectionOpen('labs', open)}
+      >
+        <div className="pt-4 space-y-2">
+          {labs.length === 0 ? (
+            <p className="text-sm opacity-50">Upload or add lab records in Records</p>
+          ) : (
+            labs.map((r) => (
+              <div key={r.id} className="p-4 rounded-xl border text-[15px] min-h-[56px]" style={{ borderColor: 'var(--color-border)' }}>
+                <p className="font-medium">{r.summary}</p>
+                <p className="text-sm opacity-50">{formatDate(r.date)} · {r.provider}</p>
+                {r.fileName && <p className="text-xs text-[var(--color-accent)] mt-1">{r.fileName}</p>}
+              </div>
+            ))
+          )}
         </div>
       </CollapsibleSection>
 

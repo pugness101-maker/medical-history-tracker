@@ -18,6 +18,13 @@ import {
   type ExtractionMethod,
 } from '../utils/fileExtraction';
 import { buildAppointmentNotes, parseAutofillFromText, type AutofillResult } from '../utils/autofillParser';
+import {
+  isImmunizationRecord,
+  parseVaccinesFromText,
+  suggestRecordTypeFromText,
+  summarizeParsedVaccines,
+} from '../utils/vaccineParser';
+import { syncVaccinesFromRecord } from '../utils/vaccineRegistry';
 import { formatDate, sortByDateDesc } from '../utils/format';
 import { Checkbox, Input, Select, Textarea } from '../components/ui/FormFields';
 import { SpecialtySelect } from '../components/ui/SpecialtySelect';
@@ -105,7 +112,21 @@ export function RecordsPage() {
       setExtractionMethod(result.method);
       setExtractionWarning(result.warning ?? '');
       if (result.text.trim()) {
-        applyAutofill(result.text, selected.name);
+        const suggested = suggestRecordTypeFromText(result.text, selected.name);
+        if (suggested === 'vaccine') {
+          setRecordType('vaccine');
+          const parsed = parseVaccinesFromText(result.text);
+          setReview({
+            ...emptyReview(selected.name),
+            providerName: '',
+            reasonForVisit: summarizeParsedVaccines(parsed),
+            extraNotes: isImmunizationRecord(result.text, selected.name)
+              ? 'Parsed immunization record — doses will sync to Health → Vaccines on save.'
+              : '',
+          });
+        } else {
+          applyAutofill(result.text, selected.name);
+        }
       } else {
         setReview((r) => ({ ...r, documents: selected.name }));
       }
@@ -137,7 +158,10 @@ export function RecordsPage() {
       updatedAt: now,
       ...partial,
     };
-    setData((d) => ({ ...d, records: [...d.records, record] }));
+    setData((d) => {
+      const withRecord = { ...d, records: [...d.records, record] };
+      return syncVaccinesFromRecord(withRecord, record);
+    });
     if (attachToId) {
       setData((d) => ({
         ...d,
@@ -151,7 +175,11 @@ export function RecordsPage() {
 
   const handleSaveAsRecord = () => {
     saveRecord();
-    setSaveMsg('Medical record saved.');
+    setSaveMsg(
+      recordType === 'vaccine'
+        ? 'Medical record saved. Vaccine doses synced to Health → Vaccines.'
+        : 'Medical record saved.',
+    );
     resetUpload();
     setShowUpload(false);
   };
@@ -179,10 +207,10 @@ export function RecordsPage() {
   };
 
   const saveEdited = (record: MedicalRecord) => {
-    setData((d) => ({
-      ...d,
-      records: d.records.map((r) => (r.id === record.id ? record : r)),
-    }));
+    setData((d) => {
+      const records = d.records.map((r) => (r.id === record.id ? record : r));
+      return syncVaccinesFromRecord({ ...d, records }, record);
+    });
     setEditRecord(undefined);
   };
 
@@ -243,7 +271,21 @@ export function RecordsPage() {
               </div>
               <Button
                 variant="secondary"
-                onClick={() => file && applyAutofill(extractedText, file.name)}
+                onClick={() => {
+                  if (!file) return;
+                  const suggested = suggestRecordTypeFromText(extractedText, file.name);
+                  if (suggested === 'vaccine') {
+                    setRecordType('vaccine');
+                    const parsed = parseVaccinesFromText(extractedText);
+                    setReview((r) => ({
+                      ...r,
+                      reasonForVisit: summarizeParsedVaccines(parsed),
+                      extraNotes: 'Parsed immunization record — doses will sync to Health → Vaccines on save.',
+                    }));
+                  } else {
+                    applyAutofill(extractedText, file.name);
+                  }
+                }}
                 disabled={!extractedText.trim()}
               >
                 Auto-fill fields from text
