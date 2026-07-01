@@ -20,8 +20,12 @@ export const emptyAppointment = (): Omit<Appointment, 'id' | 'createdAt' | 'upda
   nextAppointmentDate: '',
   cost: '',
   notes: '',
-  attachedRecordIds: [],
   status: 'upcoming',
+  providerId: '',
+  healthCategory: '',
+  relatedConditionIds: [],
+  relatedMedicationIds: [],
+  relatedRecordIds: [],
 });
 
 interface AppointmentFormProps {

@@ -1,4 +1,6 @@
+import type { Appointment } from '../types';
 import type { CareProviderEntry } from '../types/profile';
+import { getEffectiveVisitDates } from './appointmentLinking';
 import { computeNextDue } from './dueDates';
 
 export type PreventiveStatus = 'overdue' | 'due_soon' | 'scheduled' | 'complete' | 'optional';
@@ -17,21 +19,27 @@ function parseDate(dateStr: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-export function getPreventiveStatus(entry: CareProviderEntry): PreventiveStatus {
+export function getPreventiveStatusFromDates(
+  entry: CareProviderEntry,
+  lastVisit: string,
+  scheduledVisit: string,
+): PreventiveStatus {
   if (!entry.enabled) return 'optional';
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const scheduled = parseDate(entry.scheduledVisit);
+  const scheduled = parseDate(scheduledVisit);
   if (scheduled && scheduled >= today) return 'scheduled';
 
-  const nextDue = computeNextDue(entry);
+  const effectiveEntry = { ...entry, lastVisit, scheduledVisit };
+  const nextDue = entry.nextDueOverride || computeNextDue(effectiveEntry);
+
   if (!nextDue) {
     if (entry.dueFrequency === 'optional_yearly' || entry.dueFrequency === 'as_needed') {
       return 'optional';
     }
-    return entry.lastVisit ? 'complete' : 'optional';
+    return lastVisit ? 'complete' : 'optional';
   }
 
   const due = parseDate(nextDue);
@@ -44,6 +52,18 @@ export function getPreventiveStatus(entry: CareProviderEntry): PreventiveStatus 
   if (due <= in30) return 'due_soon';
 
   return 'complete';
+}
+
+export function getPreventiveStatus(
+  entry: CareProviderEntry,
+  lastVisit?: string,
+  scheduledVisit?: string,
+): PreventiveStatus {
+  return getPreventiveStatusFromDates(
+    entry,
+    lastVisit ?? entry.lastVisit,
+    scheduledVisit ?? entry.scheduledVisit,
+  );
 }
 
 export function preventiveBadgeClass(status: PreventiveStatus): string {
@@ -60,22 +80,39 @@ export function preventiveBadgeClass(status: PreventiveStatus): string {
 export interface PreventiveItem {
   entry: CareProviderEntry;
   label: string;
+  lastVisit: string;
+  scheduledVisit: string;
   nextDue: string | null;
   status: PreventiveStatus;
+  fromLinkedAppointments: boolean;
 }
 
 export function getPreventiveItems(
   careProviders: CareProviderEntry[],
   labels: Record<string, string>,
+  appointments: Appointment[] = [],
 ): PreventiveItem[] {
   return careProviders
     .filter((e) => e.enabled)
-    .map((entry) => ({
-      entry,
-      label: labels[entry.category] ?? entry.specialty,
-      nextDue: computeNextDue(entry),
-      status: getPreventiveStatus(entry),
-    }));
+    .map((entry) => {
+      const effective = getEffectiveVisitDates(entry, appointments);
+      const effectiveEntry = {
+        ...entry,
+        lastVisit: effective.lastVisit,
+        scheduledVisit: effective.scheduledVisit,
+      };
+      const nextDue = entry.nextDueOverride || computeNextDue(effectiveEntry);
+
+      return {
+        entry,
+        label: labels[entry.category] ?? entry.specialty,
+        lastVisit: effective.lastVisit,
+        scheduledVisit: effective.scheduledVisit,
+        nextDue,
+        status: getPreventiveStatusFromDates(entry, effective.lastVisit, effective.scheduledVisit),
+        fromLinkedAppointments: effective.fromAppointments,
+      };
+    });
 }
 
 export function isDueThisMonth(nextDue: string | null): boolean {
@@ -90,6 +127,6 @@ export function getDueThisMonth(items: PreventiveItem[]): PreventiveItem[] {
   return items.filter(
     (p) =>
       isDueThisMonth(p.nextDue) ||
-      (p.status === 'scheduled' && isDueThisMonth(p.entry.scheduledVisit)),
+      (p.status === 'scheduled' && isDueThisMonth(p.scheduledVisit)),
   );
 }

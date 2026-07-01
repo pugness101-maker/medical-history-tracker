@@ -14,12 +14,17 @@ import { MedicationForm } from '../components/forms/MedicationForm';
 import type { Condition, Medication } from '../types';
 import { CONDITION_STATUS_LABELS } from '../types';
 import { CARE_CATEGORY_LABELS } from '../types/profile';
-import { getCareEntry, updateCareEntry } from '../utils/profileDefaults';
+import { ProviderLinkSummary } from '../components/health/ProviderLinkSummary';
+import {
+  autoLinkAllAppointments,
+  getProviderLinkSummary,
+} from '../utils/appointmentLinking';
 import {
   getPreventiveItems,
   PREVENTIVE_STATUS_LABELS,
   preventiveBadgeClass,
 } from '../utils/preventiveCare';
+import { getCareEntry, updateCareEntry } from '../utils/profileDefaults';
 import { computeNextDue } from '../utils/dueDates';
 import { formatDate } from '../utils/format';
 import { Input } from '../components/ui/FormFields';
@@ -36,6 +41,7 @@ export function HealthPage() {
   const [editingCond, setEditingCond] = useState<Condition | undefined>();
   const [deleteMedId, setDeleteMedId] = useState<string | null>(null);
   const [deleteCondId, setDeleteCondId] = useState<string | null>(null);
+  const [autoLinkMsg, setAutoLinkMsg] = useState('');
 
   const profile = data.adultHealthProfile;
 
@@ -62,7 +68,7 @@ export function HealthPage() {
     }));
   };
 
-  const preventive = getPreventiveItems(profile.careProviders, CARE_CATEGORY_LABELS);
+  const preventive = getPreventiveItems(profile.careProviders, CARE_CATEGORY_LABELS, data.appointments);
   const vaccines = data.records.filter((r) => r.recordType === 'vaccine');
   const labs = data.records.filter((r) => r.recordType === 'lab');
 
@@ -92,12 +98,23 @@ export function HealthPage() {
 
   const isOpen = (s: string) => sectionParam === s;
 
+  const handleAutoLinkAll = () => {
+    setData((d) => autoLinkAllAppointments(d));
+    setAutoLinkMsg('All appointments linked to Health providers.');
+    setTimeout(() => setAutoLinkMsg(''), 3000);
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Health"
         subtitle="Providers, medications, conditions & preventive care"
+        actions={
+          <Button variant="secondary" onClick={handleAutoLinkAll}>Auto-link all appointments</Button>
+        }
       />
+
+      {autoLinkMsg && <p className="text-sm text-emerald-600 dark:text-emerald-400">{autoLinkMsg}</p>}
 
       <PrivacyWarning />
 
@@ -122,6 +139,7 @@ export function HealthPage() {
                 showEnableToggle={entry.category === 'dermatology'}
                 onChange={(e) => updateProfile(updateCareEntry(profile, e))}
               />
+              <ProviderLinkSummary summary={getProviderLinkSummary(entry, data)} />
             </div>
           ))}
         </div>
@@ -193,9 +211,13 @@ export function HealthPage() {
               <div>
                 <p className="font-medium text-[15px]">{p.label}</p>
                 <p className="text-sm opacity-50">
-                  Last: {p.entry.lastVisit ? formatDate(p.entry.lastVisit) : '—'}
-                  {p.nextDue && ` · Next: ${formatDate(p.nextDue)}`}
+                  Last: {p.lastVisit ? formatDate(p.lastVisit) : '—'}
+                  {p.scheduledVisit && ` · Next appt: ${formatDate(p.scheduledVisit)}`}
+                  {p.nextDue && !p.scheduledVisit && ` · Due: ${formatDate(p.nextDue)}`}
                 </p>
+                {p.fromLinkedAppointments && (
+                  <p className="text-xs mt-1 text-[var(--color-accent)]">From linked appointments</p>
+                )}
               </div>
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${preventiveBadgeClass(p.status)}`}>
                 {PREVENTIVE_STATUS_LABELS[p.status]}

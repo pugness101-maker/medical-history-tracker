@@ -2,6 +2,8 @@ export type AppointmentStatus = 'upcoming' | 'completed' | 'cancelled' | 'missed
 
 export type ConditionStatus = 'active' | 'resolved' | 'chronic';
 
+export type HealthCategory = import('./profile').ProfileCareCategory | '';
+
 export type RecordType =
   | 'lab'
   | 'imaging'
@@ -29,7 +31,13 @@ export interface Appointment {
   cost: string;
   notes: string;
   status: AppointmentStatus;
-  attachedRecordIds: string[];
+  /** CareProviderEntry.id from Health profile */
+  providerId: string;
+  /** Health care category / section */
+  healthCategory: HealthCategory;
+  relatedConditionIds: string[];
+  relatedMedicationIds: string[];
+  relatedRecordIds: string[];
   createdAt: string;
   updatedAt: string;
 }

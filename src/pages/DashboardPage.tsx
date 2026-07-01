@@ -27,7 +27,7 @@ export function DashboardPage() {
     .sort((a, b) => sortByDateAsc(a.date, b.date))
     .slice(0, 4);
 
-  const preventive = getPreventiveItems(data.adultHealthProfile.careProviders, CARE_CATEGORY_LABELS);
+  const preventive = getPreventiveItems(data.adultHealthProfile.careProviders, CARE_CATEGORY_LABELS, data.appointments);
   const overdue = preventive.filter((p) => p.status === 'overdue');
   const dueThisMonth = getDueThisMonth(preventive);
 

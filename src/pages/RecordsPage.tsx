@@ -141,7 +141,7 @@ export function RecordsPage() {
       setData((d) => ({
         ...d,
         appointments: d.appointments.map((a) =>
-          a.id === attachToId ? { ...a, attachedRecordIds: [...(a.attachedRecordIds ?? []), record.id] } : a,
+          a.id === attachToId ? { ...a, relatedRecordIds: [...(a.relatedRecordIds ?? []), record.id] } : a,
         ),
       }));
     }

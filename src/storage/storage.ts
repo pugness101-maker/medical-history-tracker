@@ -1,5 +1,6 @@
 import type { AppData } from '../types';
 import { emptyAdultHealthProfile } from '../types/profile';
+import { normalizeAppointment } from '../utils/appointmentLinking';
 import { ensureDefaultCareProviders } from '../utils/profileDefaults';
 
 export const emptyAppData = (): AppData => ({
@@ -12,16 +13,17 @@ export const emptyAppData = (): AppData => ({
   settings: { theme: 'light' },
 });
 
+function migrateAppointments(appointments: AppData['appointments']): AppData['appointments'] {
+  return (appointments ?? []).map((a) => normalizeAppointment(a as Parameters<typeof normalizeAppointment>[0]));
+}
+
 export function loadAppData(key: string): AppData {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return emptyAppData();
     const parsed = JSON.parse(raw) as AppData;
     return {
-      appointments: (parsed.appointments ?? []).map((a) => ({
-        ...a,
-        attachedRecordIds: a.attachedRecordIds ?? [],
-      })),
+      appointments: migrateAppointments(parsed.appointments),
       conditions: parsed.conditions ?? [],
       medications: parsed.medications ?? [],
       records: (parsed.records ?? []).map((r) => ({
@@ -60,10 +62,7 @@ export function importAppData(json: string): AppData {
     throw new Error('Invalid backup file format');
   }
   return {
-    appointments: (parsed.appointments ?? []).map((a) => ({
-      ...a,
-      attachedRecordIds: a.attachedRecordIds ?? [],
-    })),
+    appointments: migrateAppointments(parsed.appointments),
     conditions: parsed.conditions,
     medications: parsed.medications,
     records: (parsed.records ?? []).map((r) => ({
