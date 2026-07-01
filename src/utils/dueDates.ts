@@ -26,7 +26,7 @@ function addMonths(date: Date, months: number): Date {
   return result;
 }
 
-function monthsForFrequency(entry: CareProviderEntry): number | null {
+export function monthsForFrequency(entry: CareProviderEntry): number | null {
   switch (entry.dueFrequency) {
     case 'yearly':
     case 'optional_yearly':
@@ -42,6 +42,12 @@ function monthsForFrequency(entry: CareProviderEntry): number | null {
     default:
       return 12;
   }
+}
+
+export function addMonthsToDate(dateStr: string, months: number): string | null {
+  const base = parseDate(dateStr);
+  if (!base) return null;
+  return toDateStr(addMonths(base, months));
 }
 
 export function computeNextDue(entry: CareProviderEntry): string | null {

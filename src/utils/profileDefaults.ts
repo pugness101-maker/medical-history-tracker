@@ -5,7 +5,7 @@ const DEFAULT_FREQUENCIES: Record<ProfileCareCategory, DueFrequency> = {
   core_medical: 'yearly',
   vaccines_labs: 'yearly',
   womens_health: 'yearly',
-  sexual_health: 'yearly',
+  sexual_health: 'six_months',
   dental: 'six_months',
   vision: 'yearly',
   dermatology: 'optional_yearly',

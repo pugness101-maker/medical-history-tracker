@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAppData } from '../context/MedicalDataContext';
 import { AppointmentForm } from '../components/forms/AppointmentForm';
+import { ScheduleNextAppointmentModal } from '../components/appointments/ScheduleNextAppointmentModal';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -25,6 +26,7 @@ import {
 import { specialtyMatches } from '../utils/specialties';
 import { SpecialtySelect } from '../components/ui/SpecialtySelect';
 import { getCareEntry as getEntry } from '../utils/profileDefaults';
+import { insertNextAppointment } from '../utils/nextAppointment';
 
 type ViewMode = 'list' | 'calendar';
 type TabMode = 'upcoming' | 'past';
@@ -53,6 +55,9 @@ export function AppointmentsPage() {
   const [selectedCategory, setSelectedCategory] = useState<ProfileCareCategory>('core_medical');
   const [autoLinkMsg, setAutoLinkMsg] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
+  const [scheduleSource, setScheduleSource] = useState<Appointment | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [nextApptMsg, setNextApptMsg] = useState('');
 
   useEffect(() => {
     const state = location.state as { openAdd?: boolean } | null;
@@ -132,6 +137,12 @@ export function AppointmentsPage() {
     : [];
 
   const persistAppointment = (appointment: Appointment, closeModal = true) => {
+    const previous = data.appointments.find((a) => a.id === appointment.id);
+    const justCompleted =
+      appointment.status === 'completed' && previous?.status !== 'completed';
+
+    let linkedResult: Appointment = appointment;
+
     setData((d) => {
       let profile = d.adultHealthProfile;
       let linked = autoLinkAppointment(appointment, profile);
@@ -141,12 +152,31 @@ export function AppointmentsPage() {
         ? d.appointments.map((a) => (a.id === linked.id ? linked : a))
         : [...d.appointments, linked];
       profile = syncCareProvidersFromAppointments(profile, appointments);
+      linkedResult = linked;
       return { ...d, appointments, adultHealthProfile: profile };
     });
+
     if (closeModal) {
       setModalOpen(false);
       setEditing(undefined);
     }
+
+    if (justCompleted && closeModal) {
+      setScheduleSource(linkedResult);
+      setScheduleOpen(true);
+    }
+  };
+
+  const handleCreateNextAppointment = (source: Appointment, nextDate: string) => {
+    setData((d) => insertNextAppointment(d, source, nextDate));
+    setNextApptMsg(`Next appointment scheduled for ${formatDate(nextDate)}.`);
+    setTimeout(() => setNextApptMsg(''), 4000);
+  };
+
+  const openScheduleForDetail = () => {
+    if (!detail) return;
+    setScheduleSource(detail);
+    setScheduleOpen(true);
   };
 
   const updateDetail = (updates: Partial<Appointment>) => {
@@ -263,6 +293,7 @@ export function AppointmentsPage() {
       />
 
       {autoLinkMsg && <p className="text-sm text-emerald-600 dark:text-emerald-400">{autoLinkMsg}</p>}
+      {nextApptMsg && <p className="text-sm text-emerald-600 dark:text-emerald-400">{nextApptMsg}</p>}
 
       <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
         <SegmentedControl
@@ -428,6 +459,9 @@ export function AppointmentsPage() {
             )}
 
             <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: 'var(--color-border)' }}>
+              {detail.status === 'completed' && (
+                <Button size="sm" onClick={openScheduleForDetail}>Create next appointment</Button>
+              )}
               <Button size="sm" variant="secondary" onClick={() => setAttachRecordOpen(true)}>Attach record</Button>
               <Button size="sm" variant="secondary" onClick={() => setLinkMedsCondsOpen(true)}>Link condition/medication</Button>
               <Button variant="secondary" onClick={() => { setEditing(detail); setDetailId(null); setModalOpen(true); }}>Edit</Button>
@@ -510,6 +544,18 @@ export function AppointmentsPage() {
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(undefined); }} title={editing?.id ? 'Edit Appointment' : 'Add Appointment'} wide>
         <AppointmentForm initial={editing?.id ? editing : editing} onSubmit={persistAppointment} onCancel={() => { setModalOpen(false); setEditing(undefined); }} />
       </Modal>
+
+      <ScheduleNextAppointmentModal
+        open={scheduleOpen}
+        source={scheduleSource}
+        profile={data.adultHealthProfile}
+        allAppointments={data.appointments}
+        onClose={() => {
+          setScheduleOpen(false);
+          setScheduleSource(null);
+        }}
+        onCreate={handleCreateNextAppointment}
+      />
 
       <ConfirmDialog open={deleteId !== null} title="Delete appointment?" message="This cannot be undone." confirmLabel="Delete" danger onConfirm={() => deleteId && remove(deleteId)} onCancel={() => setDeleteId(null)} />
     </div>
