@@ -14,8 +14,6 @@ export const emptyAppointment = (): Omit<Appointment, 'id' | 'createdAt' | 'upda
   date: '',
   time: '',
   reason: '',
-  symptoms: '',
-  questionsToAsk: '',
   diagnosis: '',
   treatmentPlan: '',
   followUpNeeded: false,
@@ -75,12 +73,10 @@ export function AppointmentForm({ initial, onSubmit, onCancel }: AppointmentForm
         <Input label="Date" type="date" required value={form.date} onChange={(e) => update('date', e.target.value)} />
         <Input label="Time" type="time" value={form.time} onChange={(e) => update('time', e.target.value)} />
         <Input label="Cost / Copay" value={form.cost} onChange={(e) => update('cost', e.target.value)} />
-        <Input label="Next Appointment Date" type="date" value={form.nextAppointmentDate} onChange={(e) => update('nextAppointmentDate', e.target.value)} />
+        <Input label="Next Appointment" type="date" value={form.nextAppointmentDate} onChange={(e) => update('nextAppointmentDate', e.target.value)} />
       </div>
       <Input label="Reason for Visit" value={form.reason} onChange={(e) => update('reason', e.target.value)} />
-      <Textarea label="Symptoms" value={form.symptoms} onChange={(e) => update('symptoms', e.target.value)} />
-      <Textarea label="Questions to Ask Doctor" value={form.questionsToAsk} onChange={(e) => update('questionsToAsk', e.target.value)} />
-      <Textarea label="Diagnosis / Result" value={form.diagnosis} onChange={(e) => update('diagnosis', e.target.value)} />
+      <Textarea label="Diagnosis / Assessment" value={form.diagnosis} onChange={(e) => update('diagnosis', e.target.value)} />
       <Textarea label="Treatment Plan" value={form.treatmentPlan} onChange={(e) => update('treatmentPlan', e.target.value)} />
       <Checkbox label="Follow-up needed" checked={form.followUpNeeded} onChange={(v) => update('followUpNeeded', v)} />
       <Textarea label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} />

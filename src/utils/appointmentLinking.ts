@@ -4,17 +4,36 @@ import { getCareEntry } from './profileDefaults';
 import { sortByDateAsc, sortByDateDesc } from './format';
 import { healthCategoryFromSpecialty } from './specialties';
 
-/** @deprecated use relatedRecordIds */
-type LegacyAppointment = Appointment & { attachedRecordIds?: string[] };
+/** @deprecated legacy fields stripped on load */
+type LegacyAppointment = Appointment & {
+  attachedRecordIds?: string[];
+  symptoms?: string;
+  questionsToAsk?: string;
+};
 
 export function normalizeAppointment(a: LegacyAppointment): Appointment {
   return {
-    ...a,
+    id: a.id,
+    doctorName: a.doctorName,
+    specialty: a.specialty,
+    clinic: a.clinic,
+    date: a.date,
+    time: a.time,
+    reason: a.reason,
+    diagnosis: a.diagnosis,
+    treatmentPlan: a.treatmentPlan,
+    followUpNeeded: a.followUpNeeded,
+    nextAppointmentDate: a.nextAppointmentDate,
+    cost: a.cost,
+    notes: a.notes,
+    status: a.status,
     providerId: a.providerId ?? '',
     healthCategory: a.healthCategory ?? ('' as ProfileCareCategory | ''),
     relatedConditionIds: a.relatedConditionIds ?? [],
     relatedMedicationIds: a.relatedMedicationIds ?? [],
     relatedRecordIds: a.relatedRecordIds ?? a.attachedRecordIds ?? [],
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt,
   };
 }
 
@@ -62,7 +81,7 @@ const CATEGORY_RULES: { category: ProfileCareCategory; keywords: string[] }[] = 
 function appointmentSearchText(a: Appointment): string {
   return [
     a.doctorName, a.specialty, a.clinic, a.reason, a.diagnosis,
-    a.treatmentPlan, a.notes, a.symptoms,
+    a.treatmentPlan, a.notes,
   ].join(' ').toLowerCase();
 }
 

@@ -21,7 +21,7 @@ const CREDENTIAL_SUFFIX =
   'LPC|LCSW|LMFT|MD|DO|NP|PA|RN|PhD|PsyD|APRN|DNP|PMHNP|FNP|CNP';
 
 const SECTION_STOP =
-  'provider|doctor|physician|specialty|date|time|visit|reason|chief complaint|diagnosis|assessment|treatment|plan|care plan|prescription|medications?|rx|follow[- ]?up|notes|clinic|location|facility|documents?|referral|symptoms|started|ended|discharge|instructions';
+  'provider|doctor|physician|specialty|date|time|visit|reason|chief complaint|diagnosis|assessment|treatment|plan|care plan|prescription|medications?|rx|follow[- ]?up|notes|clinic|location|facility|documents?|referral|started|ended|discharge|instructions';
 
 function captureSection(text: string, labels: string[], maxLength = 800): string {
   for (const label of labels) {

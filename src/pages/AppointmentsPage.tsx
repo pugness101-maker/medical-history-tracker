@@ -78,8 +78,6 @@ export function AppointmentsPage() {
             date: autofill.visitDate,
             time: autofill.visitTime,
             reason: autofill.reasonForVisit,
-            symptoms: '',
-            questionsToAsk: '',
             diagnosis: autofill.diagnosis,
             treatmentPlan: autofill.treatmentPlan,
             followUpNeeded: autofill.followUpNeeded,
@@ -392,9 +390,8 @@ export function AppointmentsPage() {
               </div>
             </div>
 
-            {detail.reason && <div><p className="text-sm opacity-50">Reason</p><p>{detail.reason}</p></div>}
-            {detail.questionsToAsk && <div><p className="text-sm opacity-50">Questions for doctor</p><p className="whitespace-pre-line">{detail.questionsToAsk}</p></div>}
-            {detail.diagnosis && <div><p className="text-sm opacity-50">Diagnosis</p><p>{detail.diagnosis}</p></div>}
+            {detail.reason && <div><p className="text-sm opacity-50">Reason for visit</p><p>{detail.reason}</p></div>}
+            {detail.diagnosis && <div><p className="text-sm opacity-50">Diagnosis / Assessment</p><p>{detail.diagnosis}</p></div>}
             {detail.treatmentPlan && <div><p className="text-sm opacity-50">Treatment plan</p><p className="whitespace-pre-line">{detail.treatmentPlan}</p></div>}
             {detail.followUpNeeded && (
               <div className="p-3 rounded-xl badge-due-soon">

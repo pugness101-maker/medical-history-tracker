@@ -22,8 +22,6 @@ export interface Appointment {
   date: string;
   time: string;
   reason: string;
-  symptoms: string;
-  questionsToAsk: string;
   diagnosis: string;
   treatmentPlan: string;
   followUpNeeded: boolean;

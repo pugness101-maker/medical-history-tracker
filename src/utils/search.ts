@@ -64,10 +64,8 @@ export function globalSearch(data: AppData, query: string): SearchResult[] {
         a.specialty,
         a.clinic,
         a.reason,
-        a.symptoms,
         a.diagnosis,
         a.notes,
-        a.questionsToAsk,
         APPOINTMENT_STATUS_LABELS[a.status],
       )
     ) {
