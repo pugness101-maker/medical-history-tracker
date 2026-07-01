@@ -5,6 +5,7 @@ import { frequencyOptionsForCategory } from '../../utils/dueDates';
 import { formatDate } from '../../utils/format';
 import { Badge } from '../ui/Badge';
 import { Checkbox, Input, Select, Textarea } from '../ui/FormFields';
+import { SpecialtySelect } from '../ui/SpecialtySelect';
 import { PortalNotesWarning } from './PrivacyWarning';
 
 interface CareEntryEditorProps {
@@ -44,7 +45,7 @@ export function CareEntryEditor({ entry, onChange, showEnableToggle }: CareEntry
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Doctor / Provider" value={entry.providerName} onChange={(e) => set('providerName', e.target.value)} />
-            <Input label="Specialty" value={entry.specialty} onChange={(e) => set('specialty', e.target.value)} />
+            <SpecialtySelect label="Specialty" value={entry.specialty} onChange={(v) => set('specialty', v)} />
             <Input label="Location" value={entry.location} onChange={(e) => set('location', e.target.value)} className="sm:col-span-2" />
             <Input label="Phone" type="tel" value={entry.phone} onChange={(e) => set('phone', e.target.value)} />
             <Select

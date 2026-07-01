@@ -13,14 +13,14 @@ const DEFAULT_FREQUENCIES: Record<ProfileCareCategory, DueFrequency> = {
 };
 
 const DEFAULT_SPECIALTIES: Record<ProfileCareCategory, string> = {
-  core_medical: 'Primary Care',
-  vaccines_labs: 'Preventive Care / Labs',
-  womens_health: 'OB-GYN',
-  sexual_health: 'Sexual Health',
-  dental: 'General Dentistry',
-  vision: 'Optometry / Ophthalmology',
+  core_medical: 'Primary Care / Family Medicine',
+  vaccines_labs: 'Labs / Bloodwork',
+  womens_health: "OB-GYN / Women's Health",
+  sexual_health: 'Sexual Health / STI Clinic',
+  dental: 'Dentistry',
+  vision: 'Optometry / Eye Care',
   dermatology: 'Dermatology',
-  mental_health: 'Mental Health',
+  mental_health: 'Mental Health / Counseling',
 };
 
 export function createDefaultCareEntry(category: ProfileCareCategory): CareProviderEntry {

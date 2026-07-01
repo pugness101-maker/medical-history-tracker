@@ -20,6 +20,7 @@ import {
 import { buildAppointmentNotes, parseAutofillFromText, type AutofillResult } from '../utils/autofillParser';
 import { formatDate, sortByDateDesc } from '../utils/format';
 import { Checkbox, Input, Select, Textarea } from '../components/ui/FormFields';
+import { SpecialtySelect } from '../components/ui/SpecialtySelect';
 
 const METHOD_LABELS: Record<ExtractionMethod, string> = {
   pdf: 'PDF',
@@ -249,6 +250,11 @@ export function RecordsPage() {
               </Button>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input label="Provider" value={review.providerName} onChange={(e) => setReview({ ...review, providerName: e.target.value })} />
+                <SpecialtySelect
+                  label="Specialty"
+                  value={review.specialty}
+                  onChange={(v) => setReview({ ...review, specialty: v })}
+                />
                 <Select label="Record type" value={recordType} onChange={(e) => setRecordType(e.target.value as RecordType)}>
                   {Object.entries(RECORD_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </Select>

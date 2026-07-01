@@ -4,6 +4,8 @@ import type { Appointment, AppointmentStatus } from '../../types';
 import { APPOINTMENT_STATUS_LABELS } from '../../types';
 import { Button } from '../ui/Button';
 import { Checkbox, Input, Select, Textarea } from '../ui/FormFields';
+import { SpecialtySelect } from '../ui/SpecialtySelect';
+import type { HealthCategory } from '../../types';
 
 export const emptyAppointment = (): Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'> => ({
   doctorName: '',
@@ -56,7 +58,14 @@ export function AppointmentForm({ initial, onSubmit, onCancel }: AppointmentForm
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Input label="Doctor / Provider" required value={form.doctorName} onChange={(e) => update('doctorName', e.target.value)} />
-        <Input label="Specialty" value={form.specialty} onChange={(e) => update('specialty', e.target.value)} />
+        <SpecialtySelect
+          label="Specialty"
+          value={form.specialty}
+          onChange={(v) => update('specialty', v)}
+          onHealthCategoryChange={(cat) => {
+            if (cat) update('healthCategory', cat as HealthCategory);
+          }}
+        />
         <Input label="Clinic / Location" value={form.clinic} onChange={(e) => update('clinic', e.target.value)} />
         <Select label="Status" value={form.status} onChange={(e) => update('status', e.target.value as AppointmentStatus)}>
           {Object.entries(APPOINTMENT_STATUS_LABELS).map(([k, v]) => (

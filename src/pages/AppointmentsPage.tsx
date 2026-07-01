@@ -22,6 +22,8 @@ import {
   normalizeAppointment,
   syncCareProvidersFromAppointments,
 } from '../utils/appointmentLinking';
+import { specialtyMatches } from '../utils/specialties';
+import { SpecialtySelect } from '../components/ui/SpecialtySelect';
 import { getCareEntry as getEntry } from '../utils/profileDefaults';
 
 type ViewMode = 'list' | 'calendar';
@@ -50,6 +52,7 @@ export function AppointmentsPage() {
   const [attachRecordOpen, setAttachRecordOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ProfileCareCategory>('core_medical');
   const [autoLinkMsg, setAutoLinkMsg] = useState('');
+  const [specialtyFilter, setSpecialtyFilter] = useState('');
 
   useEffect(() => {
     const state = location.state as { openAdd?: boolean } | null;
@@ -102,13 +105,16 @@ export function AppointmentsPage() {
   }, [highlightId]);
 
   const filtered = useMemo(() => {
-    const list = data.appointments.filter((a) =>
+    let list = data.appointments.filter((a) =>
       tab === 'upcoming' ? a.status === 'upcoming' : a.status !== 'upcoming',
     );
+    if (specialtyFilter) {
+      list = list.filter((a) => specialtyMatches(a.specialty, specialtyFilter));
+    }
     return tab === 'upcoming'
       ? list.sort((a, b) => sortByDateAsc(a.date, b.date))
       : list.sort((a, b) => sortByDateDesc(a.date, b.date));
-  }, [data.appointments, tab]);
+  }, [data.appointments, tab, specialtyFilter]);
 
   const detail = detailId ? data.appointments.find((a) => a.id === detailId) : null;
   const linkedProvider = detail?.providerId
@@ -260,7 +266,7 @@ export function AppointmentsPage() {
 
       {autoLinkMsg && <p className="text-sm text-emerald-600 dark:text-emerald-400">{autoLinkMsg}</p>}
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3">
         <SegmentedControl
           options={[
             { value: 'upcoming' as TabMode, label: 'Upcoming' },
@@ -269,7 +275,14 @@ export function AppointmentsPage() {
           value={tab}
           onChange={setTab}
         />
-        <div className="flex-1" />
+        <SpecialtySelect
+          mode="filter"
+          label="Specialty"
+          value={specialtyFilter}
+          onChange={setSpecialtyFilter}
+          className="w-full sm:w-56"
+        />
+        <div className="hidden sm:block flex-1" />
         <SegmentedControl
           options={[
             { value: 'list' as ViewMode, label: 'List' },

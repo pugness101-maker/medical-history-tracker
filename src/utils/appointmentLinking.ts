@@ -2,6 +2,7 @@ import type { Appointment, AppData, Condition, MedicalRecord, Medication } from 
 import type { AdultHealthProfile, CareProviderEntry, ProfileCareCategory } from '../types/profile';
 import { getCareEntry } from './profileDefaults';
 import { sortByDateAsc, sortByDateDesc } from './format';
+import { healthCategoryFromSpecialty } from './specialties';
 
 /** @deprecated use relatedRecordIds */
 type LegacyAppointment = Appointment & { attachedRecordIds?: string[] };
@@ -78,6 +79,9 @@ function nameSimilarity(a: string, b: string): number {
 }
 
 export function inferHealthCategory(appointment: Appointment): ProfileCareCategory | '' {
+  const fromSpecialty = healthCategoryFromSpecialty(appointment.specialty);
+  if (fromSpecialty) return fromSpecialty;
+
   const text = appointmentSearchText(appointment);
   let best: ProfileCareCategory | '' = '';
   let bestScore = 0;

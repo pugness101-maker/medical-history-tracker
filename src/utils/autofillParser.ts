@@ -1,3 +1,5 @@
+import { canonicalSpecialty, normalizeSpecialtyFromText } from './specialties';
+
 export interface AutofillResult {
   providerName: string;
   specialty: string;
@@ -150,22 +152,12 @@ function parseProvider(text: string): string {
 }
 
 function parseSpecialty(text: string): string {
+  const fromUtil = normalizeSpecialtyFromText(text);
+  if (fromUtil) return fromUtil;
+
   const direct = captureLineValue(text, ['Specialty', 'Department', 'Service']);
-  if (direct) return direct;
+  if (direct) return canonicalSpecialty(direct);
 
-  const credOnly = text.match(new RegExp(`,\\s*(${CREDENTIAL_SUFFIX})\\b`));
-  if (credOnly?.[1]) return credOnly[1];
-
-  const specialties = [
-    'Primary Care', 'Family Medicine', 'Internal Medicine', 'Cardiology',
-    'Dermatology', 'Orthopedics', 'Pediatrics', 'Psychiatry', 'Psychology',
-    'Neurology', 'Oncology', 'Gastroenterology', 'Endocrinology', 'Pulmonology',
-    'Rheumatology', 'Urology', 'Obstetrics', 'Gynecology', 'Ophthalmology',
-    'Physical Therapy', 'Occupational Therapy', 'Speech Therapy',
-  ];
-  for (const s of specialties) {
-    if (text.toLowerCase().includes(s.toLowerCase())) return s;
-  }
   return '';
 }
 
