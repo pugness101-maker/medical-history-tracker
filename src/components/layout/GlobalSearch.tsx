@@ -63,8 +63,8 @@ export function GlobalSearch() {
 
   return (
     <div ref={ref} className="relative w-full">
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative min-w-0 flex-1">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="relative min-w-0 flex-1 sm:min-w-[220px]">
         <svg
           className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4"
           style={{ color: 'var(--color-muted)' }}
@@ -84,7 +84,8 @@ export function GlobalSearch() {
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          className="field-input w-full pl-10 pr-16 py-2.5"
+          className="field-input w-full pr-16 py-2.5"
+          style={{ paddingLeft: '2.75rem' }}
         />
         </div>
         <SpecialtySelect
