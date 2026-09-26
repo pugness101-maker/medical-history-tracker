@@ -24,6 +24,7 @@ export function normalizeAppointment(a: LegacyAppointment): Appointment {
     treatmentPlan: a.treatmentPlan,
     followUpNeeded: a.followUpNeeded,
     nextAppointmentDate: a.nextAppointmentDate,
+    repeatAppointmentFrequency: a.repeatAppointmentFrequency ?? '',
     cost: a.cost,
     notes: a.notes,
     status: a.status,

@@ -87,6 +87,7 @@ export function AppointmentsPage() {
             treatmentPlan: autofill.treatmentPlan,
             followUpNeeded: autofill.followUpNeeded,
             nextAppointmentDate: '',
+            repeatAppointmentFrequency: '',
             cost: '',
             notes: [autofill.prescriptions, autofill.followUpNotes, autofill.extraNotes].filter(Boolean).join('\n\n'),
             status: 'completed',
