@@ -424,7 +424,10 @@ export function AppointmentsPage() {
             {detail.reason && <div><p className="text-sm opacity-50">Reason for visit</p><p>{detail.reason}</p></div>}
             {detail.diagnosis && <div><p className="text-sm opacity-50">Diagnosis / Assessment</p><p>{detail.diagnosis}</p></div>}
             {detail.treatmentPlan && <div><p className="text-sm opacity-50">Treatment plan</p><p className="whitespace-pre-line">{detail.treatmentPlan}</p></div>}
-            {detail.followUpNeeded && (
+            {detail.repeatAppointmentFrequency && (
+    <div><p className="text-sm opacity-50">Repeat appointment</p><p>{detail.repeatAppointmentFrequency}</p></div>
+  )}
+  {detail.followUpNeeded && (
               <div className="p-3 rounded-xl badge-due-soon">
                 Follow-up needed{detail.nextAppointmentDate ? ` · ${formatDate(detail.nextAppointmentDate)}` : ''}
               </div>
