@@ -80,6 +80,11 @@ export interface MedicalRecord {
   notes: string;
   fileName: string;
   extractedText: string;
+  /** Shared encounter/provider relationships (added by migration for existing data). */
+  appointmentId?: string;
+  providerId?: string;
+  appointmentUnlinked?: boolean;
+  encounterDateVerified?: boolean;
   createdAt: string;
   updatedAt: string;
 }

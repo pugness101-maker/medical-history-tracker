@@ -3,6 +3,7 @@ import type { AdultHealthProfile, CareProviderEntry, ProfileCareCategory } from 
 import { getCareEntry } from './profileDefaults';
 import { sortByDateAsc, sortByDateDesc } from './format';
 import { healthCategoryFromSpecialty } from './specialties';
+import { syncEncounterRelationships } from './encounterRelationships';
 
 /** @deprecated legacy fields stripped on load */
 type LegacyAppointment = Appointment & {
@@ -168,7 +169,7 @@ export function autoLinkAllAppointments(data: AppData): AppData {
 
   profile = syncCareProvidersFromAppointments(profile, appointments);
 
-  return { ...data, appointments, adultHealthProfile: profile };
+  return syncEncounterRelationships({ ...data, appointments, adultHealthProfile: profile });
 }
 
 export function applyProviderNameFromAppointment(

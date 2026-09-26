@@ -16,7 +16,12 @@ interface CareEntryEditorProps {
 
 export function CareEntryEditor({ entry, onChange, showEnableToggle }: CareEntryEditorProps) {
   const set = <K extends keyof CareProviderEntry>(key: K, value: CareProviderEntry[K]) => {
-    onChange({ ...entry, [key]: value });
+    onChange({
+      ...entry,
+      [key]: value,
+      ...(key === 'lastVisit' ? { lastVisitUnlinked: false } : {}),
+      ...(key === 'scheduledVisit' ? { scheduledVisitUnlinked: false } : {}),
+    });
   };
 
   const computedDue = computeNextDue(entry);
@@ -68,6 +73,7 @@ export function CareEntryEditor({ entry, onChange, showEnableToggle }: CareEntry
               />
             )}
             <Input label="Last visit" type="date" value={entry.lastVisit} onChange={(e) => set('lastVisit', e.target.value)} />
+            <Input label="Last visit reason" value={entry.lastVisitReason ?? ''} onChange={(e) => set('lastVisitReason', e.target.value)} />
             <Input label="Scheduled visit" type="date" value={entry.scheduledVisit} onChange={(e) => set('scheduledVisit', e.target.value)} />
             <Input
               label="Next due (manual override)"

@@ -47,7 +47,12 @@ export interface CareProviderEntry {
   location: string;
   phone: string;
   lastVisit: string;
+  lastVisitReason?: string;
   scheduledVisit: string;
+  lastVisitAppointmentId?: string;
+  scheduledVisitAppointmentId?: string;
+  lastVisitUnlinked?: boolean;
+  scheduledVisitUnlinked?: boolean;
   nextDueOverride: string;
   dueFrequency: DueFrequency;
   customFrequencyMonths: number;

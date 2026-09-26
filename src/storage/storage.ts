@@ -3,6 +3,7 @@ import { emptyAdultHealthProfile } from '../types/profile';
 import { normalizeAppointment } from '../utils/appointmentLinking';
 import { ensureDefaultCareProviders } from '../utils/profileDefaults';
 import { syncVaccinesFromAllRecords } from '../utils/vaccineRegistry';
+import { syncEncounterRelationships } from '../utils/encounterRelationships';
 
 export const emptyAppData = (): AppData => ({
   appointments: [],
@@ -34,7 +35,7 @@ function migrateVaccines(parsed: AppData): AppData {
     ),
     settings: parsed.settings ?? { theme: 'light' },
   };
-  return syncVaccinesFromAllRecords(base);
+  return syncVaccinesFromAllRecords(syncEncounterRelationships(base));
 }
 
 function migrateAppointments(appointments: AppData['appointments']): AppData['appointments'] {

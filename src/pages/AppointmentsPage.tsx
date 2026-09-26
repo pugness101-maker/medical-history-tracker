@@ -27,6 +27,8 @@ import { specialtyMatches } from '../utils/specialties';
 import { SpecialtySelect } from '../components/ui/SpecialtySelect';
 import { getCareEntry as getEntry } from '../utils/profileDefaults';
 import { insertNextAppointment } from '../utils/nextAppointment';
+import { buildProviderSuggestions } from '../utils/providerSuggestions';
+import { linkRecordToAppointment, syncEncounterRelationships, unlinkAppointment } from '../utils/encounterRelationships';
 
 type ViewMode = 'list' | 'calendar';
 type TabMode = 'upcoming' | 'past';
@@ -120,6 +122,8 @@ export function AppointmentsPage() {
       : list.sort((a, b) => sortByDateDesc(a.date, b.date));
   }, [data.appointments, tab, specialtyFilter]);
 
+  const providerSuggestions = useMemo(() => buildProviderSuggestions(data), [data]);
+
   const detail = detailId ? data.appointments.find((a) => a.id === detailId) : null;
   const linkedProvider = detail?.providerId
     ? data.adultHealthProfile.careProviders.find((p) => p.id === detail.providerId)
@@ -154,7 +158,7 @@ export function AppointmentsPage() {
         : [...d.appointments, linked];
       profile = syncCareProvidersFromAppointments(profile, appointments);
       linkedResult = linked;
-      return { ...d, appointments, adultHealthProfile: profile };
+      return syncEncounterRelationships({ ...d, appointments, adultHealthProfile: profile });
     });
 
     if (closeModal) {
@@ -186,10 +190,7 @@ export function AppointmentsPage() {
   };
 
   const remove = (id: string) => {
-    setData((d) => ({
-      ...d,
-      appointments: d.appointments.filter((a) => a.id !== id),
-    }));
+    setData((d) => unlinkAppointment(d, id));
     setDeleteId(null);
     if (detailId === id) setDetailId(null);
   };
@@ -249,6 +250,10 @@ export function AppointmentsPage() {
     if (!detail) return;
     const ids = detail[field];
     const next = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+    if (field === 'relatedRecordIds') {
+      setData((d) => linkRecordToAppointment(d, id, ids.includes(id) ? undefined : detail.id));
+      return;
+    }
     updateDetail({ [field]: next });
   };
 
@@ -546,7 +551,12 @@ export function AppointmentsPage() {
       </Modal>
 
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(undefined); }} title={editing?.id ? 'Edit Appointment' : 'Add Appointment'} wide>
-        <AppointmentForm initial={editing?.id ? editing : editing} onSubmit={persistAppointment} onCancel={() => { setModalOpen(false); setEditing(undefined); }} />
+        <AppointmentForm
+          initial={editing}
+          providerSuggestions={providerSuggestions}
+          onSubmit={persistAppointment}
+          onCancel={() => { setModalOpen(false); setEditing(undefined); }}
+        />
       </Modal>
 
       <ScheduleNextAppointmentModal

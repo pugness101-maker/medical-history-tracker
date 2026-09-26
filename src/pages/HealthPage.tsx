@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useAppData } from '../context/MedicalDataContext';
 import { CareEntryEditor } from '../components/profile/CareEntryEditor';
 import { InsurancePlanEditor } from '../components/profile/InsurancePlanEditor';
@@ -33,6 +33,7 @@ import { useHealthSectionState } from '../hooks/useHealthSectionState';
 import { normalizeHealthSectionParam } from '../utils/healthSectionState';
 import { buildAllVaccineRows, updateVaccineNotes } from '../utils/vaccineRegistry';
 import type { VaccineKey } from '../types/vaccine';
+import { syncEncounterRelationships } from '../utils/encounterRelationships';
 
 function countInsurancePlans(profile: AdultHealthProfile): number {
   return [profile.insuranceMedical, profile.insuranceDental, profile.insuranceVision].filter(
@@ -82,7 +83,7 @@ export function HealthPage() {
   }, [location.state, sectionParam, setSectionOpen]);
 
   const updateProfile = (updates: Partial<typeof profile>) => {
-    setData((d) => ({
+    setData((d) => syncEncounterRelationships({
       ...d,
       adultHealthProfile: { ...d.adultHealthProfile, ...updates, updatedAt: new Date().toISOString() },
     }));
@@ -222,6 +223,36 @@ export function HealthPage() {
                 showEnableToggle={entry.category === 'dermatology'}
                 onChange={(e) => updateProfile(updateCareEntry(profile, e))}
               />
+              {(entry.lastVisitAppointmentId || entry.scheduledVisitAppointmentId) && (
+                <div className="mt-3 rounded-xl p-3 text-sm" style={{ background: 'var(--color-accent-soft)' }}>
+                  <p className="font-semibold">Linked appointment</p>
+                  {[entry.lastVisitAppointmentId, entry.scheduledVisitAppointmentId].filter(Boolean).map((id) => {
+                    const appointment = data.appointments.find((a) => a.id === id);
+                    if (!appointment) return null;
+                    const isLast = id === entry.lastVisitAppointmentId;
+                    return (
+                      <div key={id} className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                        <span>{formatDate(appointment.date)} · {appointment.doctorName}</span>
+                        <span className="flex gap-2">
+                          <Link className="text-[var(--color-accent)]" to={`/appointments?id=${appointment.id}`}>View Appointment</Link>
+                          <button type="button" className="text-red-600" onClick={() => setData((d) => ({
+                            ...d,
+                            adultHealthProfile: {
+                              ...d.adultHealthProfile,
+                              careProviders: d.adultHealthProfile.careProviders.map((p) => p.id === entry.id ? {
+                                ...p,
+                                ...(isLast
+                                  ? { lastVisitAppointmentId: undefined, lastVisitUnlinked: true }
+                                  : { scheduledVisitAppointmentId: undefined, scheduledVisitUnlinked: true }),
+                              } : p),
+                            },
+                          }))}>Unlink</button>
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <ProviderLinkSummary summary={getProviderLinkSummary(entry, data)} />
             </div>
           ))}

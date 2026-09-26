@@ -11,14 +11,33 @@ export interface AutofillResult {
   treatmentPlan: string;
   followUpNotes: string;
   dischargeInstructions: string;
-  documents: string;
   extraNotes: string;
   followUpNeeded: boolean;
   clinic: string;
 }
 
+/** Merge only clinical fields, preserving any upload-state properties on current. */
+export function mergeClinicalAutofill<T extends AutofillResult>(current: T, parsed: AutofillResult): T {
+  return {
+    ...current,
+    providerName: parsed.providerName,
+    specialty: parsed.specialty,
+    visitDate: parsed.visitDate,
+    visitTime: parsed.visitTime,
+    reasonForVisit: parsed.reasonForVisit,
+    prescriptions: parsed.prescriptions,
+    diagnosis: parsed.diagnosis,
+    treatmentPlan: parsed.treatmentPlan,
+    followUpNotes: parsed.followUpNotes,
+    dischargeInstructions: parsed.dischargeInstructions,
+    extraNotes: parsed.extraNotes,
+    followUpNeeded: parsed.followUpNeeded,
+    clinic: parsed.clinic,
+  };
+}
+
 const CREDENTIAL_SUFFIX =
-  'LPC|LCSW|LMFT|MD|DO|NP|PA(?:-C)?|RN|PhD|PsyD|APRN|DNP|PMHNP|FNP|CNP';
+  'LPC|LCSW|LMFT|LMSW|LP|PsyD|PhD|Psychologist|Therapist|Counselor|MD|DO|NP|PA(?:-C)?|RN|APRN|DNP|PMHNP|FNP|CNP';
 
 const SECTION_STOP =
   'provider|doctor|physician|specialty|date|time|visit|reason|chief complaint|diagnosis|assessment|treatment|plan|care plan|prescription|medications?|rx|follow[- ]?up|notes|clinic|location|facility|documents?|referral|started|ended|discharge|instructions';
@@ -88,29 +107,24 @@ function parseDate(text: string): string {
 }
 
 function parseEncounterDate(text: string): string {
-  const encounterLabels = /visit date|date of service|\bDOS\b|encounter date|appointment date|seen on|service date/i;
-  const excludedLabels = /date of birth|\bD\.?O\.?B\.?\b|\bDOB\b|birth date|born|medication|reviewed|obtained|signed|printed|created|uploaded/i;
-  const candidates: Array<{ date: string; context: string; score: number }> = [];
+  const encounterLabels = /visit date|date of service|\bDOS\b|encounter date|appointment date|session date|service date/i;
+  const excludedLabels = /date of birth|\bD\.?O\.?B\.?\b|\bDOB\b|birth date|born|signed|printed|created|uploaded|downloaded/i;
   const datePattern = /\b(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[\\/-]\d{1,2}[\\/-]20\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},?\s+20\d{2})\b/gi;
   const lines = text.split('\n');
 
-  lines.forEach((line, index) => {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
     for (const match of line.matchAll(datePattern)) {
-      const context = lines.slice(Math.max(0, index - 1), index + 2).join(' ').replace(/\s+/g, ' ').trim();
       const start = match.index ?? 0;
       const before = line.slice(0, start);
-      const nearby = `${before.slice(-80)} ${line.slice(start + match[0].length, start + match[0].length + 40)}`;
-      const lower = `${before} ${context}`.toLowerCase();
+      const sameLineContext = `${before.slice(-80)} ${line.slice(start + match[0].length, start + match[0].length + 40)}`;
+      const previousLine = lines[index - 1] ?? '';
+      const associated = encounterLabels.test(sameLineContext) || (encounterLabels.test(previousLine) && !datePattern.test(previousLine));
       const date = parseDate(match[0]);
-      if (!date || excludedLabels.test(nearby) || /\bmrn\b|medical record number/i.test(before.slice(-80))) continue;
-      let score = encounterLabels.test(lower) ? 20 : 1;
-      if (/^\s*visit\s+note\s*[-:#]/i.test(line)) score += 100;
-      candidates.push({ date, context, score });
+      if (date && associated && !excludedLabels.test(sameLineContext)) return date;
     }
-  });
-
-  candidates.sort((a, b) => b.score - a.score);
-  return candidates[0]?.date ?? '';
+  }
+  return '';
 }
 
 function parseTime(text: string): string {
@@ -127,29 +141,36 @@ function parseTime(text: string): string {
   return `${String(hours).padStart(2, '0')}:${minutes}`;
 }
 
-function parseVisitTimeRange(text: string): string {
-  const started = text.match(/\bStarted\s*:?\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
-  const ended = text.match(/\bEnded\s*:?\s*(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
-  if (started && ended) return `${started[1].trim()} – ${ended[1].trim()}`;
-  if (started) return started[1].trim();
-  if (ended) return ended[1].trim();
-  return '';
+function parseEncounterTime(text: string): string {
+  const label = '(?:appointment|encounter|session|visit|service)(?:\\s+(?:start|end))?\\s+time';
+  const sameLine = text.match(new RegExp(`\\b${label}\\s*:?\\s*(\\d{1,2}:\\d{2}\\s*(?:AM|PM)?)`, 'i'));
+  if (sameLine) return parseTime(sameLine[1]);
+  const nextLine = text.match(new RegExp(`(?:^|\\n)\\s*${label}\\s*:?\\s*\\n\\s*(\\d{1,2}:\\d{2}\\s*(?:AM|PM)?)`, 'i'));
+  return nextLine ? parseTime(nextLine[1]) : '';
+}
+
+function parsePatientVariants(text: string): Set<string> {
+  const value = text.match(/(?:^|\n)\s*(?:patient name|patient|member name)\s*:?\s*([^\n|]+)/im)?.[1]?.trim() ?? '';
+  const clean = value.replace(/\b(?:DOB|MRN|phone|address)\b.*$/i, '').replace(/\s+/g, ' ').trim();
+  const parts = clean.split(/\s*,\s*|\s+/).filter(Boolean);
+  const variants = new Set<string>();
+  if (clean) variants.add(clean.toLowerCase());
+  if (parts.length >= 2) {
+    variants.add(`${parts[0]} ${parts[1]}`.toLowerCase());
+    variants.add(`${parts[1]} ${parts[0]}`.toLowerCase());
+  }
+  return variants;
 }
 
 function parseProvider(text: string): string {
-  const patientName = text.match(/(?:patient name|patient|member name)\s*:?\s*([^\n|]+)/i)?.[1]?.trim().toLowerCase() ?? '';
+  const patientVariants = parsePatientVariants(text);
   const isValidProvider = (value: string) => {
     const cleaned = value.replace(/\s+/g, ' ').trim().replace(/[|;]+$/, '');
     if (!cleaned || cleaned.length < 4 || cleaned.length > 120) return false;
-    if (patientName && cleaned.toLowerCase().includes(patientName)) return false;
+    if ([...patientVariants].some((patient) => cleaned.toLowerCase().includes(patient))) return false;
     if (/^(name|date|dob|mrn|phone|fax|address)\b/i.test(cleaned)) return false;
     return /[A-Za-z].*[A-Za-z]/.test(cleaned);
   };
-
-  const lineAfterLabel = text.match(
-    /(?:^|\n)\s*(?:rendering |attending )?provider(?:\s+name)?\s*:?\s*\n\s*(.+)$/im,
-  );
-  if (lineAfterLabel?.[1] && isValidProvider(lineAfterLabel[1])) return lineAfterLabel[1].trim().slice(0, 120);
 
   const providerInline = text.match(
     new RegExp(
@@ -157,7 +178,20 @@ function parseProvider(text: string): string {
       'i',
     ),
   );
-  if (providerInline?.[1]) return providerInline[1].trim();
+  if (providerInline?.[1] && isValidProvider(providerInline[1])) return providerInline[1].trim();
+
+  // Credentialed clinician names are stronger evidence than nearby unlabeled names.
+  const credentialMatches = text.matchAll(new RegExp(
+    `\\b([A-Z][a-z]+(?:\\s+[A-Z][a-z'\\-]+)+,\\s*(?:${CREDENTIAL_SUFFIX}))\\b`, 'g',
+  ));
+  for (const match of credentialMatches) {
+    if (isValidProvider(match[1])) return match[1].trim();
+  }
+
+  const lineAfterLabel = text.match(
+    /(?:^|\n)\s*(?:rendering |attending )?provider(?:\s+name)?\s*:?\s*\n\s*(.+)$/im,
+  );
+  if (lineAfterLabel?.[1] && isValidProvider(lineAfterLabel[1])) return lineAfterLabel[1].trim().slice(0, 120);
 
   const sameLine = captureLineValue(text, [
     'Rendering Provider',
@@ -169,13 +203,6 @@ function parseProvider(text: string): string {
     'Clinician',
   ]);
   if (isValidProvider(sameLine)) return sameLine;
-
-  const credMatch = text.match(
-    new RegExp(
-      `\\b([A-Z][a-z]+(?:\\s+[A-Z][a-z'\\-]+)+,\\s*(?:${CREDENTIAL_SUFFIX}))\\b`,
-    ),
-  );
-  if (credMatch?.[1]) return credMatch[1].trim();
 
   const drMatch = text.match(/\bDr\.?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z'\\-]+)+)(?:,\s*(?:MD|DO))?/);
   if (drMatch) return `Dr. ${drMatch[1]}`;
@@ -235,7 +262,7 @@ function buildRecordNotes(parts: {
   return sections.join('\n\n').trim();
 }
 
-export function parseAutofillFromText(text: string, fileName = ''): AutofillResult {
+export function parseAutofillFromText(text: string): AutofillResult {
   const normalized = text.replace(/\r\n/g, '\n').trim();
 
   const followUpNotes = captureSection(text, [
@@ -284,14 +311,9 @@ export function parseAutofillFromText(text: string, fileName = ''): AutofillResu
     'Patient Instructions?',
   ]);
 
-  const documentsSection = captureSection(text, ['Documents?', 'Attachments?', 'Files?']);
-
   const visitDate = parseEncounterDate(normalized);
 
-  const visitTime =
-    parseVisitTimeRange(normalized) ||
-    captureLineValue(text, ['Time', 'Visit Time', 'Appointment Time']) ||
-    parseTime(normalized.slice(0, 500));
+  const visitTime = parseEncounterTime(normalized);
 
   const clinic = captureLineValue(text, [
     'Clinic',
@@ -324,7 +346,6 @@ export function parseAutofillFromText(text: string, fileName = ''): AutofillResu
     treatmentPlan,
     followUpNotes,
     dischargeInstructions,
-    documents: documentsSection || fileName,
     extraNotes,
     followUpNeeded: hasFollowUp(normalized) || Boolean(followUpNotes),
     clinic,
@@ -345,9 +366,6 @@ export function buildAppointmentNotes(review: AutofillResult, extractedText: str
   }
   if (review.followUpNotes) {
     parts.push(`Follow-up Notes:\n${review.followUpNotes}`);
-  }
-  if (review.documents) {
-    parts.push(`Documents: ${review.documents}`);
   }
   if (review.extraNotes) {
     parts.push(`Additional Notes:\n${review.extraNotes}`);
