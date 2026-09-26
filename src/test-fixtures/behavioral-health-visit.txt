@@ -1,0 +1,10 @@
+Patient Name: Adriana Hyatt
+DOB: 02/04/2007
+Address: 12 Example Street
+Phone: (555) 555-1212
+Clinician: Angela Nordin, LPC
+Reason for Visit Trauma Stress Mood Issues
+Prescriptions None
+CARE PLAN
+Continue the care plan discussed during the session.
+Document generated at 13:00
