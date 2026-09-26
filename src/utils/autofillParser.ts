@@ -18,7 +18,7 @@ export interface AutofillResult {
 }
 
 const CREDENTIAL_SUFFIX =
-  'LPC|LCSW|LMFT|MD|DO|NP|PA|RN|PhD|PsyD|APRN|DNP|PMHNP|FNP|CNP';
+  'LPC|LCSW|LMFT|MD|DO|NP|PA(?:-C)?|RN|PhD|PsyD|APRN|DNP|PMHNP|FNP|CNP';
 
 const SECTION_STOP =
   'provider|doctor|physician|specialty|date|time|visit|reason|chief complaint|diagnosis|assessment|treatment|plan|care plan|prescription|medications?|rx|follow[- ]?up|notes|clinic|location|facility|documents?|referral|started|ended|discharge|instructions';
@@ -87,35 +87,30 @@ function parseDate(text: string): string {
   return '';
 }
 
-function parsePatientDob(text: string): string {
-  const match = text.match(/(?:date of birth|\bDOB\b|birth date|born)\s*[:#-]?\s*([^\n|,;]+)/i);
-  return match ? parseDate(match[1]) : '';
-}
-
 function parseEncounterDate(text: string): string {
-  const patientDob = parsePatientDob(text);
-  const labeled = text.match(/(?:visit note|visit date|date of service|encounter date|appointment date|seen on)\s*[:#-]?\s*([^\n|;]+)/i);
-  const labeledDate = labeled ? parseDate(labeled[1]) : '';
-  if (labeledDate) return labeledDate;
-
+  const encounterLabels = /visit date|date of service|\bDOS\b|encounter date|appointment date|seen on|service date/i;
+  const excludedLabels = /date of birth|\bD\.?O\.?B\.?\b|\bDOB\b|birth date|born|medication|reviewed|obtained|signed|printed|created|uploaded/i;
+  const candidates: Array<{ date: string; context: string; score: number }> = [];
+  const datePattern = /\b(?:20\d{2}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[\\/-]\d{1,2}[\\/-]20\d{2}|(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2},?\s+20\d{2})\b/gi;
   const lines = text.split('\n');
-  const candidates: Array<{ date: string; score: number }> = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const date = parseDate(line);
-    if (!date) continue;
-    const context = lines.slice(Math.max(0, index - 1), index + 2).join(' ');
-    const lower = context.toLowerCase();
-    if (/date of birth|\bdob\b|birth date|born|mrn|medical record number/.test(lower)) continue;
-    if (patientDob && date === patientDob) continue;
-    let score = 1;
-    if (/visit note|visit date|date of service|encounter date|appointment date|seen on/.test(lower)) score += 10;
-    if (/created|signed|printed|uploaded|document date/.test(lower)) score += 2;
-    candidates.push({ date, score });
-  }
-  const unique = [...new Map(candidates.map((candidate) => [candidate.date, candidate])).values()];
-  unique.sort((a, b) => b.score - a.score);
-  return unique.length === 1 || unique[0]?.score > (unique[1]?.score ?? 0) ? unique[0]?.date ?? '' : '';
+
+  lines.forEach((line, index) => {
+    for (const match of line.matchAll(datePattern)) {
+      const context = lines.slice(Math.max(0, index - 1), index + 2).join(' ').replace(/\s+/g, ' ').trim();
+      const start = match.index ?? 0;
+      const before = line.slice(0, start);
+      const nearby = `${before.slice(-80)} ${line.slice(start + match[0].length, start + match[0].length + 40)}`;
+      const lower = `${before} ${context}`.toLowerCase();
+      const date = parseDate(match[0]);
+      if (!date || excludedLabels.test(nearby) || /\bmrn\b|medical record number/i.test(before.slice(-80))) continue;
+      let score = encounterLabels.test(lower) ? 20 : 1;
+      if (/^\s*visit\s+note\s*[-:#]/i.test(line)) score += 100;
+      candidates.push({ date, context, score });
+    }
+  });
+
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0]?.date ?? '';
 }
 
 function parseTime(text: string): string {
@@ -252,17 +247,19 @@ export function parseAutofillFromText(text: string, fileName = ''): AutofillResu
   const reasonForVisit =
     captureSection(text, [
       'Reason for (?:visit|appointment)',
-      'Chief Complaint',
+      'Chief Complaints?',
       'Visit Reason',
       'Presenting (?:Problem|Concern)',
     ]) ||
-    captureLineValue(text, ['Reason for Visit', 'Chief Complaint', 'Reason', 'Visit Reason']) ||
+    captureLineValue(text, ['Reason for Visit', 'Chief Complaints?', 'Reason', 'Visit Reason']) ||
     captureInlineValue(text, 'Reason for Visit', [
       'Prescriptions', 'Care Plan', 'Discharge', 'Documents', 'Started', 'Ended', 'Diagnosis',
     ]) ||
-    captureInlineValue(text, 'Chief Complaint', [
+    captureInlineValue(text, 'Chief Complaints?', [
       'Prescriptions', 'Care Plan', 'Discharge', 'Documents', 'Started', 'Ended', 'Diagnosis',
-    ]);
+    ]) ||
+    normalized.match(/\bH\/O\s+([^\n|;,.()]+(?:\s+[^\n|;,.()]+)*)/i)?.[1]?.trim() ||
+    '';
 
   const diagnosis = captureSection(text, [
     'Diagnosis',

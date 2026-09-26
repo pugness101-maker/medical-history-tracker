@@ -1,14 +1,9 @@
 import { parseAutofillFromText } from './autofillParser';
 
 export function runAutofillParserRegressionTest(): void {
-  const result = parseAutofillFromText(`
-    Westlake Dermatology
-    Patient Name: Jamie Doe
-    DOB: 02/04/2007
-    Visit Note - July 8, 2026
-    Provider: Aarushi Walia, PA-C
-    H/O acne flare
-  `);
+  const result = parseAutofillFromText(
+    'Visit Note - July 8, 2026 Hyatt, Adriana MRN: MM0000129950 Phone: (832) 535-5831 DOB: 02/04/2007 Sex: Female\nProvider: Aarushi Walia, PA-C\nChief Complaints: Eczema (Patient Reported)\nH/O eczema',
+  );
 
   if (result.visitDate !== '2026-07-08') {
     throw new Error(`Expected visit date 2026-07-08, received ${result.visitDate}`);
