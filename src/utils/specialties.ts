@@ -85,20 +85,8 @@ export function canonicalSpecialty(value: string): string {
   const alias = ALIAS_TO_CANONICAL[trimmed.toLowerCase()];
   if (alias) return alias;
 
-  for (const [key, canonical] of Object.entries(ALIAS_TO_CANONICAL)) {
-    if (trimmed.toLowerCase().includes(key) || key.includes(trimmed.toLowerCase())) {
-      return canonical;
-    }
-  }
-
-  for (const o of SPECIALTY_OPTIONS) {
-    if (o.value === OTHER_SPECIALTY_KEY) continue;
-    const lower = o.value.toLowerCase();
-    if (trimmed.toLowerCase().includes(lower) || lower.includes(trimmed.toLowerCase())) {
-      return o.value;
-    }
-  }
-
+  // Unknown values remain custom specialties. Partial substring matching is not
+  // safe here: for example, "patient assessment" contains the option "ENT".
   return trimmed;
 }
 
@@ -128,17 +116,24 @@ export function normalizeSpecialtyFromText(text: string): string {
     if (c) return c;
   }
 
-  const lower = text.toLowerCase();
-  for (const o of SPECIALTY_OPTIONS) {
-    if (o.value === OTHER_SPECIALTY_KEY) continue;
-    if (lower.includes(o.value.toLowerCase())) return o.value;
-  }
-  for (const [alias, canonical] of Object.entries(ALIAS_TO_CANONICAL)) {
-    if (lower.includes(alias)) return canonical;
+  // Full-document inference must use bounded, meaningful phrases. In particular,
+  // never treat "ent" inside patient, treatment, assessment, or document as ENT.
+  const evidence: Array<[RegExp, string]> = [
+    [/\b(?:ear[ ,/-]+nose[ ,/&-]+(?:and[ ,/&-]+)?throat|otolaryngolog(?:y|ist))\b/i, 'ENT'],
+    [/\b(?:dermatolog(?:y|ist)|skin clinic)\b/i, 'Dermatology'],
+    [/\b(?:family medicine|primary care|general practice|internal medicine)\b/i, 'Primary Care / Family Medicine'],
+    [/\b(?:mental health|behavioral health|counseling|psychology|psychotherapy)\b/i, 'Mental Health / Counseling'],
+    [/\bpsychiatr(?:y|ist)\b/i, 'Psychiatry'],
+    [/\b(?:dentistry|dentist|dental clinic)\b/i, 'Dentistry'],
+    [/\b(?:optometry|ophthalmology|eye care)\b/i, 'Optometry / Eye Care'],
+    [/\b(?:radiology|diagnostic imaging)\b/i, 'Imaging / Radiology'],
+  ];
+  for (const [pattern, specialty] of evidence) {
+    if (pattern.test(text)) return specialty;
   }
 
-  const credMatch = text.match(/,\s*(LPC|LCSW|LMFT|MD|DO|NP|PA)\b/i);
-  if (credMatch && /counsel|therap|mental|psych/i.test(text)) {
+  const behavioralCredential = /,\s*(?:LPC|LCSW|LMFT|LMSW|LP|PsyD|PhD)\b/i.test(text);
+  if (behavioralCredential || /\b(?:psychologist|therapist|counselor)\b/i.test(text)) {
     return 'Mental Health / Counseling';
   }
 

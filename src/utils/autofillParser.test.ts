@@ -1,23 +1,64 @@
-import { parseAutofillFromText } from './autofillParser';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { describe, it } from 'node:test';
+import { mergeClinicalAutofill, parseAutofillFromText, type AutofillResult } from './autofillParser';
 
-export function runAutofillParserRegressionTest(): void {
-  const result = parseAutofillFromText(
-    'Visit Note - July 8, 2026 Hyatt, Adriana MRN: MM0000129950 Phone: (832) 535-5831 DOB: 02/04/2007 Sex: Female\nProvider: Aarushi Walia, PA-C\nChief Complaints: Eczema (Patient Reported)\nH/O eczema',
-  );
+const behavioralHealthText = readFileSync(
+  new URL('../test-fixtures/behavioral-health-visit.txt', import.meta.url),
+  'utf8',
+);
 
-  if (result.visitDate !== '2026-07-08') {
-    throw new Error(`Expected visit date 2026-07-08, received ${result.visitDate}`);
-  }
-  if (String(result.visitDate) === '2007-02-04') {
-    throw new Error('Patient DOB must never be selected as the visit date');
-  }
-  if (result.providerName !== 'Aarushi Walia, PA-C') {
-    throw new Error(`Expected treating provider, received ${result.providerName}`);
-  }
-  if (result.specialty !== 'Dermatology') {
-    throw new Error(`Expected Dermatology specialty, received ${result.specialty}`);
-  }
-  if (result.reasonForVisit !== 'acne flare') {
-    throw new Error(`Expected concise reason, received ${result.reasonForVisit}`);
-  }
-}
+describe('Records behavioral-health upload regression', () => {
+  it('separates patient and credentialed provider and retains the reason', () => {
+    const parsed = parseAutofillFromText(behavioralHealthText);
+
+    assert.equal(parsed.providerName, 'Angela Nordin, LPC');
+    assert.ok(!parsed.providerName.includes('Adriana Hyatt'));
+    assert.equal(parsed.specialty, 'Mental Health / Counseling');
+    assert.notEqual(parsed.specialty, 'ENT');
+    assert.equal(parsed.reasonForVisit, 'Trauma Stress Mood Issues');
+  });
+
+  it('does not use DOB or an unrelated time and creates concise notes', () => {
+    const parsed = parseAutofillFromText(behavioralHealthText);
+
+    assert.equal(parsed.visitDate, '');
+    assert.notEqual(parsed.visitDate, '2007-02-04');
+    assert.equal(parsed.visitTime, '');
+    assert.ok(parsed.extraNotes.includes('Care Plan:'));
+    assert.ok(!parsed.extraNotes.includes('Adriana Hyatt'));
+    assert.ok(parsed.extraNotes.length < behavioralHealthText.length);
+  });
+
+  it('does not classify words containing ent as ENT', () => {
+    const parsed = parseAutofillFromText(
+      'Patient assessment and treatment document. The patient reports improvement.',
+    );
+    assert.notEqual(parsed.specialty, 'ENT');
+  });
+
+  it('only accepts explicitly encounter-associated dates and times', () => {
+    const parsed = parseAutofillFromText(
+      'DOB: 02/04/2007\nSigned: 09/20/2026 08:00\nSession Date: September 18, 2026\nSession Time: 1:00 PM',
+    );
+    assert.equal(parsed.visitDate, '2026-09-18');
+    assert.equal(parsed.visitTime, '13:00');
+  });
+
+  it('cannot overwrite immutable upload identity during auto-fill', () => {
+    const current: AutofillResult & { originalFilename: string; rawExtractedText: string } = {
+      ...parseAutofillFromText(''),
+      originalFilename: 'care-record 15th June _.pdf',
+      rawExtractedText: behavioralHealthText,
+    };
+    const maliciousParserResult = {
+      ...parseAutofillFromText(behavioralHealthText),
+      originalFilename: 'CARE PLAN and clinical document text',
+      rawExtractedText: 'overwritten',
+    };
+
+    const merged = mergeClinicalAutofill(current, maliciousParserResult);
+    assert.equal(merged.originalFilename, 'care-record 15th June _.pdf');
+    assert.equal(merged.rawExtractedText, behavioralHealthText);
+  });
+});
