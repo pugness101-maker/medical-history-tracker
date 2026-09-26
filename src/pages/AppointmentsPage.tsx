@@ -27,6 +27,7 @@ import { specialtyMatches } from '../utils/specialties';
 import { SpecialtySelect } from '../components/ui/SpecialtySelect';
 import { getCareEntry as getEntry } from '../utils/profileDefaults';
 import { insertNextAppointment } from '../utils/nextAppointment';
+import { buildProviderSuggestions } from '../utils/providerSuggestions';
 
 type ViewMode = 'list' | 'calendar';
 type TabMode = 'upcoming' | 'past';
@@ -119,6 +120,8 @@ export function AppointmentsPage() {
       ? list.sort((a, b) => sortByDateAsc(a.date, b.date))
       : list.sort((a, b) => sortByDateDesc(a.date, b.date));
   }, [data.appointments, tab, specialtyFilter]);
+
+  const providerSuggestions = useMemo(() => buildProviderSuggestions(data), [data]);
 
   const detail = detailId ? data.appointments.find((a) => a.id === detailId) : null;
   const linkedProvider = detail?.providerId
@@ -546,7 +549,12 @@ export function AppointmentsPage() {
       </Modal>
 
       <Modal open={modalOpen} onClose={() => { setModalOpen(false); setEditing(undefined); }} title={editing?.id ? 'Edit Appointment' : 'Add Appointment'} wide>
-        <AppointmentForm initial={editing?.id ? editing : editing} onSubmit={persistAppointment} onCancel={() => { setModalOpen(false); setEditing(undefined); }} />
+        <AppointmentForm
+          initial={editing}
+          providerSuggestions={providerSuggestions}
+          onSubmit={persistAppointment}
+          onCancel={() => { setModalOpen(false); setEditing(undefined); }}
+        />
       </Modal>
 
       <ScheduleNextAppointmentModal

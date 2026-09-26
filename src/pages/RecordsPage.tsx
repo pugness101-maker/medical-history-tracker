@@ -17,7 +17,7 @@ import {
   getFileKind,
   type ExtractionMethod,
 } from '../utils/fileExtraction';
-import { buildAppointmentNotes, parseAutofillFromText, type AutofillResult } from '../utils/autofillParser';
+import { buildAppointmentNotes, mergeClinicalAutofill, parseAutofillFromText, type AutofillResult } from '../utils/autofillParser';
 import {
   isImmunizationRecord,
   parseVaccinesFromText,
@@ -36,10 +36,10 @@ const METHOD_LABELS: Record<ExtractionMethod, string> = {
   none: 'None',
 };
 
-const emptyReview = (fileName = ''): AutofillResult => ({
+const emptyReview = (): AutofillResult => ({
   providerName: '', specialty: '', visitDate: '', visitTime: '', reasonForVisit: '',
   prescriptions: '', diagnosis: '', treatmentPlan: '', followUpNotes: '',
-  dischargeInstructions: '', documents: fileName, extraNotes: '', followUpNeeded: false, clinic: '',
+  dischargeInstructions: '', extraNotes: '', followUpNeeded: false, clinic: '',
 });
 
 export function RecordsPage() {
@@ -94,14 +94,17 @@ export function RecordsPage() {
     if (fileRef.current) fileRef.current.value = '';
   };
 
-  const applyAutofill = (text: string, fileName: string) => {
-    setReview(parseAutofillFromText(text, fileName));
+  const applyAutofill = (text: string) => {
+    const parsed = parseAutofillFromText(text);
+    // Clinical parser output is deliberately whitelisted. Upload identity and raw
+    // text stay in their own state and can never be overwritten by document text.
+    setReview((current) => mergeClinicalAutofill(current, parsed));
   };
 
   const processFile = async (selected: File) => {
     setFile(selected);
     setLoading(true);
-    setReview(emptyReview(selected.name));
+    setReview(emptyReview());
     setSaveMsg('');
     try {
       const result = await extractTextFromFile(selected, {
@@ -117,7 +120,7 @@ export function RecordsPage() {
           setRecordType('vaccine');
           const parsed = parseVaccinesFromText(result.text);
           setReview({
-            ...emptyReview(selected.name),
+            ...emptyReview(),
             providerName: '',
             reasonForVisit: summarizeParsedVaccines(parsed),
             extraNotes: isImmunizationRecord(result.text, selected.name)
@@ -125,10 +128,8 @@ export function RecordsPage() {
               : '',
           });
         } else {
-          applyAutofill(result.text, selected.name);
+          applyAutofill(result.text);
         }
-      } else {
-        setReview((r) => ({ ...r, documents: selected.name }));
       }
     } catch (err) {
       setExtractionWarning(err instanceof Error ? err.message : 'Extraction failed');
@@ -141,22 +142,21 @@ export function RecordsPage() {
     }
   };
 
-  const saveRecord = (partial?: Partial<MedicalRecord>) => {
+  const saveRecord = () => {
     const now = new Date().toISOString();
     const today = now.split('T')[0];
     const record: MedicalRecord = {
       id: uuidv4(),
       recordType,
-      date: review.visitDate || today,
+      date: review.visitDate,
       uploadDate: today,
       provider: review.providerName,
       summary: review.reasonForVisit || review.diagnosis || file?.name || 'Uploaded record',
       notes: review.extraNotes,
-      fileName: file?.name ?? review.documents,
+      fileName: file?.name ?? '',
       extractedText: extractedText.slice(0, 5000),
       createdAt: now,
       updatedAt: now,
-      ...partial,
     };
     setData((d) => {
       const withRecord = { ...d, records: [...d.records, record] };
@@ -185,8 +185,9 @@ export function RecordsPage() {
   };
 
   const handleCreateAppointment = () => {
-    const parsed = { ...review };
-    if (!parsed.providerName && extractedText) Object.assign(parsed, parseAutofillFromText(extractedText, file?.name));
+    const parsed = !review.providerName && extractedText
+      ? mergeClinicalAutofill({ ...review }, parseAutofillFromText(extractedText))
+      : { ...review };
     parsed.extraNotes = buildAppointmentNotes(parsed, extractedText);
     setAppointmentAutofill(parsed);
     saveRecord();
@@ -283,7 +284,7 @@ export function RecordsPage() {
                       extraNotes: 'Parsed immunization record — doses will sync to Health → Vaccines on save.',
                     }));
                   } else {
-                    applyAutofill(extractedText, file.name);
+                    applyAutofill(extractedText);
                   }
                 }}
                 disabled={!extractedText.trim()}
@@ -302,7 +303,7 @@ export function RecordsPage() {
                 </Select>
                 <Input label="Visit / record date" type="date" value={review.visitDate} onChange={(e) => setReview({ ...review, visitDate: e.target.value })} />
                 <Input label="Visit time" value={review.visitTime} onChange={(e) => setReview({ ...review, visitTime: e.target.value })} placeholder="e.g. 10:00 AM – 10:50 AM" />
-                <Input label="Original filename" value={review.documents} onChange={(e) => setReview({ ...review, documents: e.target.value })} className="sm:col-span-2" />
+                <Input label="Original filename" value={file.name} readOnly className="sm:col-span-2" />
               </div>
               <Textarea label="Summary / reason" value={review.reasonForVisit} onChange={(e) => setReview({ ...review, reasonForVisit: e.target.value })} rows={2} />
               <Textarea label="Notes" value={review.extraNotes} onChange={(e) => setReview({ ...review, extraNotes: e.target.value })} rows={3} />

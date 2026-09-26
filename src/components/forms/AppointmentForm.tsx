@@ -6,6 +6,8 @@ import { Button } from '../ui/Button';
 import { Checkbox, Input, Select, Textarea } from '../ui/FormFields';
 import { SpecialtySelect } from '../ui/SpecialtySelect';
 import type { HealthCategory } from '../../types';
+import { ProviderCombobox } from '../ui/ProviderCombobox';
+import { fillProviderDetails, type ProviderSuggestion } from '../../utils/providerSuggestions';
 
 export const emptyAppointment = (): Omit<Appointment, 'id' | 'createdAt' | 'updatedAt'> => ({
   doctorName: '',
@@ -33,9 +35,10 @@ interface AppointmentFormProps {
   initial?: Appointment;
   onSubmit: (appointment: Appointment) => void;
   onCancel: () => void;
+  providerSuggestions: ProviderSuggestion[];
 }
 
-export function AppointmentForm({ initial, onSubmit, onCancel }: AppointmentFormProps) {
+export function AppointmentForm({ initial, onSubmit, onCancel, providerSuggestions }: AppointmentFormProps) {
   const [form, setForm] = useState(initial ?? { ...emptyAppointment(), id: '', createdAt: '', updatedAt: '' });
 
   const update = <K extends keyof Appointment>(key: K, value: Appointment[K]) => {
@@ -53,10 +56,20 @@ export function AppointmentForm({ initial, onSubmit, onCancel }: AppointmentForm
     });
   };
 
+  const selectProvider = (provider: ProviderSuggestion) => {
+    setForm((current) => fillProviderDetails(current, provider));
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Input label="Doctor / Provider" required value={form.doctorName} onChange={(e) => update('doctorName', e.target.value)} />
+        <ProviderCombobox
+          required
+          value={form.doctorName}
+          suggestions={providerSuggestions}
+          onChange={(value) => update('doctorName', value)}
+          onSelect={selectProvider}
+        />
         <SpecialtySelect
           label="Specialty"
           value={form.specialty}
