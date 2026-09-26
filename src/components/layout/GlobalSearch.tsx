@@ -62,8 +62,9 @@ export function GlobalSearch() {
   const showResults = open && (query.trim() || specialtyFilter);
 
   return (
-    <div ref={ref} className="relative w-full space-y-2">
-      <div className="relative">
+    <div ref={ref} className="relative w-full">
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative min-w-0 flex-1">
         <svg
           className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4"
           style={{ color: 'var(--color-muted)' }}
@@ -85,11 +86,8 @@ export function GlobalSearch() {
           onFocus={() => setOpen(true)}
           className="field-input w-full pl-10 pr-16 py-2.5"
         />
-        <kbd className="hidden sm:inline-flex absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-medium px-1.5 py-0.5 rounded-md border opacity-40">
-          ⌘K
-        </kbd>
-      </div>
-      <SpecialtySelect
+        </div>
+        <SpecialtySelect
         mode="filter"
         label="Filter by specialty"
         value={specialtyFilter}
@@ -98,7 +96,8 @@ export function GlobalSearch() {
           setOpen(true);
         }}
         className="w-full sm:max-w-xs"
-      />
+        />
+      </div>
       {showResults && (
         <div
           className="absolute top-full mt-2 w-full rounded-2xl border shadow-xl overflow-hidden z-50 max-h-80 overflow-y-auto"
