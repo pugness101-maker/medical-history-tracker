@@ -42,7 +42,7 @@ async function extractPdfText(file: File): Promise<string> {
 }
 
 async function extractOcrText(
-  file: File,
+  file: File | HTMLCanvasElement,
   onProgress?: (progress: number) => void,
 ): Promise<string> {
   const { default: Tesseract } = await import('tesseract.js');
@@ -54,6 +54,40 @@ async function extractOcrText(
     },
   });
   return result.data.text.trim();
+}
+
+async function extractScannedPdfText(
+  file: File,
+  onProgress?: (progress: number) => void,
+): Promise<string> {
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url,
+  ).href;
+
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const pages: string[] = [];
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const baseViewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.ceil(baseViewport.width);
+    canvas.height = Math.ceil(baseViewport.height);
+    await page.render({
+      canvas,
+      canvasContext: canvas.getContext('2d')!,
+      viewport: baseViewport,
+    }).promise;
+    const text = await extractOcrText(canvas, (progress) => {
+      const pageProgress = ((i - 1) + progress / 100) / pdf.numPages;
+      onProgress?.(Math.round(pageProgress * 100));
+    });
+    if (text) pages.push(text);
+  }
+
+  return pages.join('\\n\\n').trim();
 }
 
 export function getFileKind(file: File): 'pdf' | 'image' | 'text' | 'unknown' {
@@ -73,15 +107,26 @@ export async function extractTextFromFile(
   try {
     if (kind === 'pdf') {
       const text = await extractPdfText(file);
-      if (!text) {
-        return {
-          text: '',
-          method: 'pdf',
-          warning:
-            'No text could be extracted from this PDF. It may be scanned — try saving as an image and enabling OCR.',
-        };
+      if (text) return { text, method: 'pdf' };
+
+      if (options.useOcr) {
+        const ocrText = await extractScannedPdfText(file, options.onOcrProgress);
+        if (ocrText) {
+          return {
+            text: ocrText,
+            method: 'ocr',
+            warning: 'This scanned PDF was read with OCR. Please review the highlighted fields before saving.',
+          };
+        }
       }
-      return { text, method: 'pdf' };
+
+      return {
+        text: '',
+        method: 'pdf',
+        warning: options.useOcr
+          ? 'No readable text was found in this PDF. Try a clearer scan or image.'
+          : 'This PDF appears to be scanned. Enable OCR to extract its text.',
+      };
     }
 
     if (kind === 'image') {

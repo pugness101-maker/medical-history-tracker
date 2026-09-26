@@ -26,6 +26,7 @@ export interface Appointment {
   treatmentPlan: string;
   followUpNeeded: boolean;
   nextAppointmentDate: string;
+  repeatAppointmentFrequency: string;
   cost: string;
   notes: string;
   status: AppointmentStatus;

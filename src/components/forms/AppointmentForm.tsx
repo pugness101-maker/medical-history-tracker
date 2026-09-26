@@ -18,6 +18,7 @@ export const emptyAppointment = (): Omit<Appointment, 'id' | 'createdAt' | 'upda
   treatmentPlan: '',
   followUpNeeded: false,
   nextAppointmentDate: '',
+  repeatAppointmentFrequency: '',
   cost: '',
   notes: '',
   status: 'upcoming',
@@ -74,10 +75,16 @@ export function AppointmentForm({ initial, onSubmit, onCancel }: AppointmentForm
         <Input label="Time" type="time" value={form.time} onChange={(e) => update('time', e.target.value)} />
         <Input label="Cost / Copay" value={form.cost} onChange={(e) => update('cost', e.target.value)} />
         <Input label="Next Appointment" type="date" value={form.nextAppointmentDate} onChange={(e) => update('nextAppointmentDate', e.target.value)} />
+        <Select label="Repeat appointment frequency" value={form.repeatAppointmentFrequency} onChange={(e) => update('repeatAppointmentFrequency', e.target.value)}>
+          <option value="">Does not repeat</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+          <option value="quarterly">Every 3 months</option>
+          <option value="six_months">Every 6 months</option>
+          <option value="yearly">Yearly</option>
+        </Select>
       </div>
       <Input label="Reason for Visit" value={form.reason} onChange={(e) => update('reason', e.target.value)} />
-      <Textarea label="Diagnosis / Assessment" value={form.diagnosis} onChange={(e) => update('diagnosis', e.target.value)} />
-      <Textarea label="Treatment Plan" value={form.treatmentPlan} onChange={(e) => update('treatmentPlan', e.target.value)} />
       <Checkbox label="Follow-up needed" checked={form.followUpNeeded} onChange={(v) => update('followUpNeeded', v)} />
       <Textarea label="Notes" value={form.notes} onChange={(e) => update('notes', e.target.value)} />
       <div className="flex gap-3 justify-end pt-2">

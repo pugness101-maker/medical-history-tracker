@@ -97,6 +97,7 @@ export function buildFollowUpAppointment(
     treatmentPlan: '',
     followUpNeeded: false,
     nextAppointmentDate: '',
+    repeatAppointmentFrequency: source.repeatAppointmentFrequency ?? '',
     cost: '',
     notes: '',
     status: 'upcoming',
