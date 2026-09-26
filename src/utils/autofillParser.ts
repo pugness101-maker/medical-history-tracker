@@ -87,6 +87,37 @@ function parseDate(text: string): string {
   return '';
 }
 
+function parsePatientDob(text: string): string {
+  const match = text.match(/(?:date of birth|\bDOB\b|birth date|born)\s*[:#-]?\s*([^\n|,;]+)/i);
+  return match ? parseDate(match[1]) : '';
+}
+
+function parseEncounterDate(text: string): string {
+  const patientDob = parsePatientDob(text);
+  const labeled = text.match(/(?:visit note|visit date|date of service|encounter date|appointment date|seen on)\s*[:#-]?\s*([^\n|;]+)/i);
+  const labeledDate = labeled ? parseDate(labeled[1]) : '';
+  if (labeledDate) return labeledDate;
+
+  const lines = text.split('\n');
+  const candidates: Array<{ date: string; score: number }> = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const date = parseDate(line);
+    if (!date) continue;
+    const context = lines.slice(Math.max(0, index - 1), index + 2).join(' ');
+    const lower = context.toLowerCase();
+    if (/date of birth|\bdob\b|birth date|born|mrn|medical record number/.test(lower)) continue;
+    if (patientDob && date === patientDob) continue;
+    let score = 1;
+    if (/visit note|visit date|date of service|encounter date|appointment date|seen on/.test(lower)) score += 10;
+    if (/created|signed|printed|uploaded|document date/.test(lower)) score += 2;
+    candidates.push({ date, score });
+  }
+  const unique = [...new Map(candidates.map((candidate) => [candidate.date, candidate])).values()];
+  unique.sort((a, b) => b.score - a.score);
+  return unique.length === 1 || unique[0]?.score > (unique[1]?.score ?? 0) ? unique[0]?.date ?? '' : '';
+}
+
 function parseTime(text: string): string {
   const match = text.match(/\b(\d{1,2}):(\d{2})\s*(AM|PM)?\b/i);
   if (!match) return '';
@@ -111,10 +142,19 @@ function parseVisitTimeRange(text: string): string {
 }
 
 function parseProvider(text: string): string {
+  const patientName = text.match(/(?:patient name|patient|member name)\s*:?\s*([^\n|]+)/i)?.[1]?.trim().toLowerCase() ?? '';
+  const isValidProvider = (value: string) => {
+    const cleaned = value.replace(/\s+/g, ' ').trim().replace(/[|;]+$/, '');
+    if (!cleaned || cleaned.length < 4 || cleaned.length > 120) return false;
+    if (patientName && cleaned.toLowerCase().includes(patientName)) return false;
+    if (/^(name|date|dob|mrn|phone|fax|address)\b/i.test(cleaned)) return false;
+    return /[A-Za-z].*[A-Za-z]/.test(cleaned);
+  };
+
   const lineAfterLabel = text.match(
-    /(?:^|\n)\s*Provider(?:\s+Name)?\s*:?\s*\n\s*(.+)$/im,
+    /(?:^|\n)\s*(?:rendering |attending )?provider(?:\s+name)?\s*:?\s*\n\s*(.+)$/im,
   );
-  if (lineAfterLabel?.[1]?.trim()) return lineAfterLabel[1].trim().slice(0, 120);
+  if (lineAfterLabel?.[1] && isValidProvider(lineAfterLabel[1])) return lineAfterLabel[1].trim().slice(0, 120);
 
   const providerInline = text.match(
     new RegExp(
@@ -133,7 +173,7 @@ function parseProvider(text: string): string {
     'Therapist',
     'Clinician',
   ]);
-  if (sameLine) return sameLine;
+  if (isValidProvider(sameLine)) return sameLine;
 
   const credMatch = text.match(
     new RegExp(
@@ -152,13 +192,14 @@ function parseProvider(text: string): string {
 }
 
 function parseSpecialty(text: string): string {
-  const fromUtil = normalizeSpecialtyFromText(text);
-  if (fromUtil) return fromUtil;
-
   const direct = captureLineValue(text, ['Specialty', 'Department', 'Service']);
   if (direct) return canonicalSpecialty(direct);
 
-  return '';
+  const clinic = captureLineValue(text, ['Clinic', 'Location', 'Facility', 'Office', 'Practice']);
+  const clinicSpecialty = normalizeSpecialtyFromText(clinic);
+  if (clinicSpecialty) return clinicSpecialty;
+
+  return normalizeSpecialtyFromText(text);
 }
 
 function parsePrescriptions(text: string): string {
@@ -248,16 +289,7 @@ export function parseAutofillFromText(text: string, fileName = ''): AutofillResu
 
   const documentsSection = captureSection(text, ['Documents?', 'Attachments?', 'Files?']);
 
-  const visitDate =
-    captureLineValue(text, [
-      'Date of (?:visit|service)',
-      'Visit Date',
-      'Appointment Date',
-      'Service Date',
-    ]) ||
-    parseDate(normalized.match(/\b(0?[1-9]|1[0-2])[/\\-](0?[1-9]|[12]\d|3[01])[/\\-](20\d{2})\b/)?.[0] || '') ||
-    parseDate(captureLineValue(text, ['Date'])) ||
-    parseDate(normalized.slice(0, 800));
+  const visitDate = parseEncounterDate(normalized);
 
   const visitTime =
     parseVisitTimeRange(normalized) ||
@@ -324,8 +356,9 @@ export function buildAppointmentNotes(review: AutofillResult, extractedText: str
     parts.push(`Additional Notes:\n${review.extraNotes}`);
   }
 
-  parts.push('--- Extracted from uploaded note ---');
-  parts.push(extractedText.slice(0, 3000));
+  if (extractedText.trim() && parts.length === 0) {
+    parts.push('Source text requires manual review.');
+  }
 
   return parts.filter(Boolean).join('\n\n');
 }
